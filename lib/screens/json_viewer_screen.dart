@@ -64,28 +64,7 @@ class JsonViewerScreen extends StatelessWidget {
 
   Widget _buildWindowsLayout(BuildContext context) {
     return fluent.NavigationView(
-      appBar: fluent.NavigationAppBar(
-        title: const Text('JsonTry Viewer'),
-        actions: fluent.Row(
-          mainAxisAlignment: fluent.MainAxisAlignment.end,
-          children: [
-            fluent.IconButton(
-              icon: const Icon(fluent.FluentIcons.folder_open),
-              onPressed: () => context.read<JsonProvider>().loadJsonFile(),
-            ),
-          ],
-        ),
-      ),
-      pane: fluent.NavigationPane(
-        selected: 0,
-        items: [
-          fluent.PaneItem(
-            icon: const Icon(fluent.FluentIcons.document),
-            title: const Text('JSON Viewer'),
-            body: _buildMainContent(context),
-          ),
-        ],
-      ),
+      content: _buildMainContent(context),
     );
   }
 

@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/widgets.dart';
+import 'package:jsontry/utils/path_utils.dart';
 import '../workers/search_worker.dart';
 
 class JsonNode {
@@ -56,6 +58,9 @@ enum JsonNodeType {
 
 class JsonProvider extends ChangeNotifier {
   List<JsonNode> _nodes = [];
+  List<JsonNode> _flattenNodes = [];
+  ScrollController _scrollController = ScrollController();
+  String? _lastScrolledPath;
   String _searchQuery = '';
   List<String> _searchResults = []; // Paths of matching nodes
   int _currentSearchIndex = -1;
@@ -69,9 +74,16 @@ class JsonProvider extends ChangeNotifier {
   String? _error;
   Timer? _searchDebounceTimer;
   SearchWorker? _searchWorker;
+  final double _estimatedItemHeight = 25;
+  
+  // Performance tracking
+  int _expandedPathsCount = 0;
+  Duration? _lastExpansionDuration;
 
   // Getters
-  List<JsonNode> get nodes => _nodes; // Always return all nodes, no filtering
+  List<JsonNode> get nodes => _flattenNodes; // Return flattened nodes for rendering
+  ScrollController get scrollController => _scrollController;
+  double get estimatedItemHeight => _estimatedItemHeight;
   String get searchQuery => _searchQuery;
   List<String> get searchResults => _searchResults;
   int get currentSearchIndex => _currentSearchIndex;
@@ -84,6 +96,10 @@ class JsonProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isSearching => _isSearching;
   String? get error => _error;
+  
+  // Performance getters
+  int get expandedPathsCount => _expandedPathsCount;
+  Duration? get lastExpansionDuration => _lastExpansionDuration;
 
   String get fileSizeFormatted {
     if (_fileSize < 1024) return '$_fileSize B';
@@ -101,13 +117,13 @@ class JsonProvider extends ChangeNotifier {
     return 'JSONTry';
   }
 
-  List<JsonNode> flattenNodes(List<JsonNode> nodes) {
+  List<JsonNode> _getFlattenNodes(List<JsonNode> nodes) {
     List<JsonNode> flatList = [];
 
     for (var node in nodes) {
       flatList.add(node);
       if (node.isExpanded && node.children != null) {
-        flatList.addAll(flattenNodes(node.children!));
+        flatList.addAll(_getFlattenNodes(node.children!));
       }
     }
 
@@ -180,6 +196,7 @@ class JsonProvider extends ChangeNotifier {
 
       final jsonData = jsonDecode(jsonString);
       _nodes = _parseJsonToNodes(jsonData);
+      _flattenNodes = _getFlattenNodes(_nodes);
 
       stopwatch.stop();
       _loadDuration = stopwatch.elapsed;
@@ -230,6 +247,7 @@ class JsonProvider extends ChangeNotifier {
     final content = await file.readAsString();
     final jsonData = jsonDecode(content);
     _nodes = _parseJsonToNodes(jsonData);
+    _flattenNodes = _getFlattenNodes(_nodes);
   }
 
   Future<void> _loadLargeJsonFile(File file) async {
@@ -240,6 +258,7 @@ class JsonProvider extends ChangeNotifier {
     // Parse in compute isolate to avoid blocking UI
     final jsonData = await compute(_parseJsonInIsolate, content);
     _nodes = _parseJsonToNodes(jsonData);
+    _flattenNodes = _getFlattenNodes(_nodes);
   }
 
   static dynamic _parseJsonInIsolate(String content) {
@@ -328,8 +347,11 @@ class JsonProvider extends ChangeNotifier {
     );
   }
 
-  void toggleNode(String path) {
+  void toggleNode(String path, {bool skipFlatten = false}) {
     _nodes = _updateNodeExpansion(_nodes, path);
+
+    if (!skipFlatten) _flattenNodes = _getFlattenNodes(_nodes);
+
     notifyListeners();
   }
 
@@ -338,7 +360,8 @@ class JsonProvider extends ChangeNotifier {
       if (node.path == targetPath) {
         bool newExpanded = forceExpand ?? !node.isExpanded;
         return node.copyWith(isExpanded: newExpanded);
-      } else if (node.children != null) {
+      } else if (node.children != null && targetPath.startsWith(node.path)) {
+        // Only traverse children if the target path could be in this subtree
         return node.copyWith(children: _updateNodeExpansion(node.children!, targetPath, forceExpand: forceExpand));
       }
       return node;
@@ -405,47 +428,118 @@ class JsonProvider extends ChangeNotifier {
     _loadDuration = null;
     _isSearching = false;
     _error = null;
+    _expandedPathsCount = 0;
+    _lastExpansionDuration = null;
     notifyListeners();
   }
 
   Future<void> _expandAllSearchPaths() async {
-    for (String path in _searchResults) {
-      _expandParentPaths(path);
+    if (_searchResults.isEmpty) return;
+    
+    final stopwatch = Stopwatch()..start();
+    
+    // For large result sets, process in batches to avoid blocking the UI
+    const int batchSize = 50;
+    final Set<String> pathsToExpand = <String>{};
+    
+    // Process search results in batches
+    for (int i = 0; i < _searchResults.length; i += batchSize) {
+      final int endIndex = (i + batchSize < _searchResults.length) 
+        ? i + batchSize 
+        : _searchResults.length;
+      
+      final batch = _searchResults.sublist(i, endIndex);
+      for (String path in batch) {
+        collectParentPaths(path, pathsToExpand);
+      }
+      
+      // Yield control to UI thread after each batch
+      if (i + batchSize < _searchResults.length) {
+        await Future.delayed(Duration.zero);
+      }
+    }
+    
+    // Expand all collected paths in a single tree traversal
+    if (pathsToExpand.isNotEmpty) {
+      _nodes = expandPathsBatch(_nodes, pathsToExpand);
+      _flattenNodes = _getFlattenNodes(_nodes);
+    }
+    
+    stopwatch.stop();
+    _expandedPathsCount = pathsToExpand.length;
+    _lastExpansionDuration = stopwatch.elapsed;
+    
+    // Debug logging for performance monitoring (can be removed in production)
+    if (kDebugMode) {
+      print('Expanded ${pathsToExpand.length} paths in ${stopwatch.elapsedMilliseconds}ms for ${_searchResults.length} search results');
     }
   }
 
-  void _expandParentPaths(String targetPath) {
-    // Extract all parent paths from the target path
-    List<String> pathSegments = [];
-    List<String> segments = targetPath.split('.');
-
+  @visibleForTesting
+  void collectParentPaths(String targetPath, Set<String> pathsToExpand) {
+    // Handle array notation paths like "users[0].name" 
+    final segments = getPathSegments(targetPath);
+    
     // Build all parent paths (e.g., for "a.b.c" we need to expand "a" and "a.b")
     String currentPath = '';
     for (int i = 0; i < segments.length - 1; i++) {
       if (currentPath.isEmpty) {
-        currentPath = segments[i];
+        currentPath = segments[i].toString();
       } else {
-        currentPath += '.${segments[i]}';
+        // Reconstruct path properly handling array indices
+        if (segments[i] is int) {
+          currentPath += '[${segments[i]}]';
+        } else {
+          currentPath += '.${segments[i]}';
+        }
       }
-      pathSegments.add(currentPath);
-    }
-
-    // Expand all parent paths
-    for (String parentPath in pathSegments) {
-      _nodes = _updateNodeExpansion(_nodes, parentPath, forceExpand: true);
+      pathsToExpand.add(currentPath);
     }
   }
 
-  void nextSearchResult() {
+  @visibleForTesting
+  List<JsonNode> expandPathsBatch(List<JsonNode> nodes, Set<String> pathsToExpand) {
+    return nodes.map((node) {
+      // Check if this node's path should be expanded
+      bool shouldExpand = pathsToExpand.contains(node.path);
+      
+      // Process children if they exist and this path might contain targets
+      List<JsonNode>? updatedChildren;
+      if (node.children != null) {
+        // Only traverse children if any target path starts with this node's path
+        bool hasChildTargets = pathsToExpand.any((path) => 
+          path.startsWith(node.path) && path.length > node.path.length);
+        
+        if (hasChildTargets) {
+          updatedChildren = expandPathsBatch(node.children!, pathsToExpand);
+        } else {
+          updatedChildren = node.children;
+        }
+      }
+      
+      // Return updated node if expansion state changed or children were updated
+      if (shouldExpand && !node.isExpanded) {
+        return node.copyWith(isExpanded: true, children: updatedChildren);
+      } else if (updatedChildren != node.children) {
+        return node.copyWith(children: updatedChildren);
+      }
+      
+      return node;
+    }).toList();
+  }
+
+  void nextSearchResult(BuildContext context) {
     if (_searchResults.isNotEmpty && _currentSearchIndex < _searchResults.length - 1) {
       _currentSearchIndex++;
+      _scrollToCurrentSearchResult(context);
       notifyListeners();
     }
   }
 
-  void previousSearchResult() {
+  void previousSearchResult(BuildContext context) {
     if (_searchResults.isNotEmpty && _currentSearchIndex > 0) {
       _currentSearchIndex--;
+      _scrollToCurrentSearchResult(context);
       notifyListeners();
     }
   }
@@ -463,6 +557,83 @@ class JsonProvider extends ChangeNotifier {
 
   bool isCurrentSearchResult(String nodePath) {
     return currentSearchResultPath == nodePath;
+  }
+
+  void _scrollToCurrentSearchResult(BuildContext context) {
+    final currentPath = currentSearchResultPath;
+    if (currentPath != null && currentPath != _lastScrolledPath) {
+      _lastScrolledPath = currentPath;
+
+      // Find the index of the current search result in the flattened node list
+      final index = _findNodeIndex(_nodes, currentPath, 0);
+      if (index != -1 && _scrollController.hasClients) {
+        // Calculate the scroll offset
+        final targetOffset = index * _estimatedItemHeight - (MediaQuery.of(context).size.height / 2) + (_estimatedItemHeight * 2);
+        final maxScrollExtent = _scrollController.position.maxScrollExtent;
+        final clampedOffset = targetOffset.clamp(0.0, maxScrollExtent);
+
+        // Use a slight delay to ensure the widget is fully rendered
+        _scrollController.jumpTo(clampedOffset);
+      }
+    }
+  }
+
+  int _findNodeIndex(List<JsonNode> nodes, String targetPath, int currentIndex) {
+    final targetPathSegments = getPathSegments(targetPath);
+
+    for (final node in nodes) {
+      if (node.path == targetPath) {
+        return currentIndex;
+      }
+
+      currentIndex++;
+
+      final currentPathSegments = getPathSegments(node.path);
+
+      if (targetPathSegments.length < currentPathSegments.length) {
+        if (node.isExpanded && node.children != null) {
+          currentIndex += _countVisibleChildren(node.children!);
+        }
+
+        continue;
+      }
+
+      final fragmentedPath = targetPathSegments.sublist(0, currentPathSegments.length);
+
+      if (!listEquals(currentPathSegments, fragmentedPath)) {
+        if (node.isExpanded && node.children != null) {
+          currentIndex += _countVisibleChildren(node.children!);
+        }
+
+        continue;
+      }
+
+      if (!node.isExpanded && node.children != null) {
+        toggleNode(node.path, skipFlatten: true);
+      }
+
+      // If node is expanded and has children, search in children
+      if (node.isExpanded && node.children != null) {
+        final childIndex = _findNodeIndex(node.children!, targetPath, currentIndex);
+        if (childIndex != -1) {
+          return childIndex;
+        }
+        // Add the count of visible children to the current index
+        currentIndex += _countVisibleChildren(node.children!);
+      }
+    }
+    return -1; // Not found
+  }
+
+  int _countVisibleChildren(List<JsonNode> children) {
+    int count = 0;
+    for (final child in children) {
+      count++;
+      if (child.isExpanded && child.children != null) {
+        count += _countVisibleChildren(child.children!);
+      }
+    }
+    return count;
   }
 
   @override

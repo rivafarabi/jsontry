@@ -56,7 +56,7 @@ class StatusBar extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
               ],
-              
+
               // File size
               if (provider.fileSize > 0) ...[
                 _buildStatusItem(
@@ -67,7 +67,7 @@ class StatusBar extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
               ],
-              
+
               // Load time
               if (provider.loadDuration != null) ...[
                 _buildStatusItem(
@@ -78,20 +78,9 @@ class StatusBar extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
               ],
-              
+
               const Spacer(),
-              
-              // Search results
-              if (provider.searchQuery.isNotEmpty) ...[
-                _buildStatusItem(
-                  context,
-                  Icons.search,
-                  '${_countTotalNodes(provider.nodes)} matches',
-                  Colors.purple,
-                ),
-                const SizedBox(width: 12),
-              ],
-              
+
               // Node count
               if (provider.nodes.isNotEmpty) ...[
                 _buildStatusItem(
@@ -101,7 +90,7 @@ class StatusBar extends StatelessWidget {
                   Colors.indigo,
                 ),
               ],
-              
+
               // Loading indicator
               if (provider.isLoading) ...[
                 const SizedBox(width: 12),
@@ -116,14 +105,14 @@ class StatusBar extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 6),
-                  Text(
-                    'Loading...',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.blue.withOpacity(0.8),
-                      fontWeight: FontWeight.w500,
-                    ),
+                Text(
+                  'Loading...',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.blue.withOpacity(0.8),
+                    fontWeight: FontWeight.w500,
                   ),
+                ),
               ],
             ],
           ),
@@ -180,8 +169,6 @@ class StatusBar extends StatelessWidget {
       return Theme.of(context).dividerColor;
     }
   }
-
-
 
   String _getFileName(String filePath) {
     return filePath.split('/').last.split('\\').last;

@@ -87,11 +87,11 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
                 const SizedBox(width: 4),
                 MacosIconButton(
                   icon: const MacosIcon(CupertinoIcons.chevron_up),
-                  onPressed: provider.searchResultsCount > 0 ? provider.previousSearchResult : null,
+                  onPressed: provider.searchResultsCount > 0 ? () => provider.previousSearchResult(context) : null,
                 ),
                 MacosIconButton(
                   icon: const MacosIcon(CupertinoIcons.chevron_down),
-                  onPressed: provider.searchResultsCount > 0 ? provider.nextSearchResult : null,
+                  onPressed: provider.searchResultsCount > 0 ? () => provider.nextSearchResult(context) : null,
                 ),
                 const SizedBox(width: 4),
                 MacosIconButton(
@@ -110,45 +110,65 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
   }
 
   Widget _buildWindowsSearchBar(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: fluent.FluentTheme.of(context).scaffoldBackgroundColor,
-        border: Border(
-          bottom: BorderSide(
-            color: fluent.FluentTheme.of(context).resources.dividerStrokeColorDefault,
-            width: 1,
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: fluent.TextBox(
-              controller: _searchController,
-              placeholder: 'Search keys and values (min 3 characters)...',
-              prefix: const Padding(
-                padding: EdgeInsets.only(left: 8),
-                child: Icon(fluent.FluentIcons.search),
+    return Consumer<JsonProvider>(
+      builder: (context, provider, child) {
+        return Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: fluent.FluentTheme.of(context).scaffoldBackgroundColor,
+            border: Border(
+              bottom: BorderSide(
+                color: fluent.FluentTheme.of(context).resources.dividerStrokeColorDefault,
+                width: 1,
               ),
-              onChanged: (value) {
-                if (value.length >= 3 || value.isEmpty) {
-                  context.read<JsonProvider>().search(value);
-                }
-              },
-              onSubmitted: _onSubmitted,
             ),
           ),
-          const SizedBox(width: 8),
-          fluent.IconButton(
-            icon: const Icon(fluent.FluentIcons.clear),
-            onPressed: () {
-              _searchController.clear();
-              context.read<JsonProvider>().search('');
-            },
+          child: Row(
+            children: [
+              Expanded(
+                child: fluent.TextBox(
+                  controller: _searchController,
+                  placeholder: 'Search keys and values (min 3 characters)...',
+                  prefix: const Padding(
+                    padding: EdgeInsets.only(left: 8),
+                    child: Icon(fluent.FluentIcons.search),
+                  ),
+                  suffix: context.read<JsonProvider>().isSearching ? const fluent.ProgressRing() : null,
+                  onSubmitted: _onSubmitted,
+                ),
+              ),
+              if (provider.searchQuery.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Text(
+                    provider.searchResultsCount > 0 ? '${provider.currentSearchIndex + 1}/${provider.searchResultsCount}' : '0/0',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                fluent.IconButton(
+                  icon: const Icon(fluent.FluentIcons.chevron_up),
+                  onPressed: provider.searchResultsCount > 0 ? () => provider.previousSearchResult(context) : null,
+                ),
+                fluent.IconButton(
+                  icon: const Icon(fluent.FluentIcons.chevron_down),
+                  onPressed: provider.searchResultsCount > 0 ? () => provider.nextSearchResult(context) : null,
+                ),
+                const SizedBox(width: 4),
+                const SizedBox(width: 8),
+                fluent.IconButton(
+                  icon: const Icon(fluent.FluentIcons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    context.read<JsonProvider>().search('');
+                  },
+                ),
+              ],
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

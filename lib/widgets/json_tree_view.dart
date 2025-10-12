@@ -1,5 +1,3 @@
-import 'package:jsontry/utils/path_utils.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:macos_ui/macos_ui.dart';
@@ -16,160 +14,62 @@ class JsonTreeView extends StatefulWidget {
 }
 
 class _JsonTreeViewState extends State<JsonTreeView> {
-  final ScrollController _scrollController = ScrollController();
-  String? _lastScrolledPath;
   String? _lastSearchQuery;
-  final double _estimatedItemHeight = 24;
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    context.read<JsonProvider>().scrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<JsonProvider>(
-      builder: (context, provider, child) {
-        late Color backgroundColor;
+    late Color backgroundColor;
 
-        if (UniversalPlatform.isMacOS) {
-          backgroundColor = MacosTheme.of(context).canvasColor;
-        } else if (UniversalPlatform.isWindows) {
-          backgroundColor = fluent.FluentTheme.of(context).scaffoldBackgroundColor;
-        } else {
-          backgroundColor = Theme.of(context).scaffoldBackgroundColor;
-        }
+    if (UniversalPlatform.isMacOS) {
+      backgroundColor = MacosTheme.of(context).canvasColor;
+    } else if (UniversalPlatform.isWindows) {
+      backgroundColor = fluent.FluentTheme.of(context).scaffoldBackgroundColor;
+    } else {
+      backgroundColor = Theme.of(context).scaffoldBackgroundColor;
+    }
 
-        return Container(
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            border: Border(
-              top: BorderSide(
-                color: Theme.of(context).dividerColor,
-                width: 1,
-              ),
-            ),
+    return Container(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        border: Border(
+          top: BorderSide(
+            color: Theme.of(context).dividerColor,
+            width: 1,
           ),
-          child: Consumer<JsonProvider>(
-            builder: (context, provider, child) {
-              // Clear state when search is cleared
-              if (provider.searchQuery.isEmpty) {
-                _lastScrolledPath = null;
-                _lastSearchQuery = null;
-              }
-
-              // Check if search query changed (new search performed)
-              if (provider.searchQuery != _lastSearchQuery) {
-                _lastSearchQuery = provider.searchQuery;
-                _lastScrolledPath = null; // Reset to allow scroll to first result
-              }
-
-              // Listen for changes in current search result and scroll to it
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                _scrollToCurrentSearchResult(provider);
-              });
-
-              var flattenedNodes = provider.flattenNodes(provider.nodes);
-              var dataLength = flattenedNodes.length;
-
-              return ListView.builder(
-                controller: _scrollController,
-                itemCount: dataLength,
-                itemBuilder: (context, index) {
-                  return _buildNodeRow(context, flattenedNodes[index], provider, index);
-                },
-                addAutomaticKeepAlives: false,
-                addRepaintBoundaries: true,
-                addSemanticIndexes: false,
-                cacheExtent: 200,
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-
-  void _scrollToCurrentSearchResult(JsonProvider provider) {
-    final currentPath = provider.currentSearchResultPath;
-    if (currentPath != null && currentPath != _lastScrolledPath) {
-      _lastScrolledPath = currentPath;
-
-      // Find the index of the current search result in the flattened node list
-      final index = _findNodeIndex(provider, provider.nodes, currentPath, 0);
-      if (index != -1 && _scrollController.hasClients) {
-        // Calculate the scroll offset
-        final targetOffset = index * _estimatedItemHeight - (MediaQuery.of(context).size.height / 2) + (_estimatedItemHeight);
-        final maxScrollExtent = _scrollController.position.maxScrollExtent;
-        final clampedOffset = targetOffset.clamp(0.0, maxScrollExtent);
-
-        // Use a slight delay to ensure the widget is fully rendered
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (_scrollController.hasClients) {
-            _scrollController.jumpTo(clampedOffset);
+        ),
+      ),
+      child: Consumer<JsonProvider>(
+        builder: (context, provider, child) {
+          // Clear state when search is cleared
+          if (provider.searchQuery.isEmpty) {
+            _lastSearchQuery = null;
           }
-        });
-      }
-    }
-  }
 
-  int _findNodeIndex(JsonProvider provider, List<JsonNode> nodes, String targetPath, int currentIndex) {
-    final targetPathSegments = getPathSegments(targetPath);
+          // Check if search query changed (new search performed)
+          if (provider.searchQuery != _lastSearchQuery) {
+            _lastSearchQuery = provider.searchQuery;
+          }
 
-    for (final node in nodes) {
-      if (node.path == targetPath) {
-        return currentIndex;
-      }
-
-      currentIndex++;
-
-      final currentPathSegments = getPathSegments(node.path);
-
-      if (targetPathSegments.length < currentPathSegments.length) {
-        if (node.isExpanded && node.children != null) {
-          currentIndex += _countVisibleChildren(node.children!);
-        }
-
-        continue;
-      }
-
-      final fragmentedPath = targetPathSegments.sublist(0, currentPathSegments.length);
-
-      if (!listEquals(currentPathSegments, fragmentedPath)) {
-        if (node.isExpanded && node.children != null) {
-          currentIndex += _countVisibleChildren(node.children!);
-        }
-
-        continue;
-      }
-
-      if (!node.isExpanded && node.children != null) {
-        provider.toggleNode(node.path);
-      }
-
-      // If node is expanded and has children, search in children
-      if (node.isExpanded && node.children != null) {
-        final childIndex = _findNodeIndex(provider, node.children!, targetPath, currentIndex);
-        if (childIndex != -1) {
-          return childIndex;
-        }
-        // Add the count of visible children to the current index
-        currentIndex += _countVisibleChildren(node.children!);
-      }
-    }
-    return -1; // Not found
-  }
-
-  int _countVisibleChildren(List<JsonNode> children) {
-    int count = 0;
-    for (final child in children) {
-      count++;
-      if (child.isExpanded && child.children != null) {
-        count += _countVisibleChildren(child.children!);
-      }
-    }
-    return count;
+          return ListView.builder(
+            controller: provider.scrollController,
+            itemCount: provider.nodes.length,
+            itemBuilder: (context, index) {
+              return _buildNodeRow(context, provider.nodes[index], provider, index);
+            },
+            addAutomaticKeepAlives: false,
+            addRepaintBoundaries: true,
+            addSemanticIndexes: false,
+            cacheExtent: 100,
+          );
+        },
+      ),
+    );
   }
 
   Widget _buildNodeRow(BuildContext context, JsonNode node, JsonProvider provider, int globalIndex) {
@@ -187,33 +87,13 @@ class _JsonTreeViewState extends State<JsonTreeView> {
       isCollapsible = false;
     }
 
-    late Color backgroundColor;
-
-    if (UniversalPlatform.isMacOS) {
-      backgroundColor = isCurrentResult
-          ? Colors.blue.shade600.withOpacity(0.8)
-          : isSearchMatch
-              ? Colors.blue.shade600.withOpacity(0.3)
-              : isEven
-                  ? Colors.grey.shade800.withOpacity(0.3)
-                  : Colors.grey.shade900.withOpacity(0.2);
-    } else if (UniversalPlatform.isWindows) {
-      backgroundColor = isCurrentResult
-          ? Colors.orange.shade200
-          : isSearchMatch
-              ? Colors.yellow.shade100
-              : isEven
-                  ? Colors.grey.shade50
-                  : Colors.white;
-    } else {
-      backgroundColor = isCurrentResult
-          ? (isDark ? Colors.orange.shade700 : Colors.orange.shade200)
-          : isSearchMatch
-              ? (isDark ? Colors.yellow.shade800.withOpacity(0.4) : Colors.yellow.shade100)
-              : isEven
-                  ? (isDark ? Colors.grey.shade800.withOpacity(0.3) : Colors.grey.shade50)
-                  : (isDark ? Colors.grey.shade900.withOpacity(0.2) : Colors.white);
-    }
+    Color backgroundColor = isCurrentResult
+        ? (isDark ? Colors.blue.shade600.withOpacity(0.8) : Colors.blue.shade200.withOpacity(0.8))
+        : isSearchMatch
+            ? (isDark ? Colors.blue.shade600.withOpacity(0.3) : Colors.blue.shade200.withOpacity(0.3))
+            : isEven
+                ? (isDark ? Colors.grey.shade800.withOpacity(0.3) : Colors.grey.shade50)
+                : (isDark ? Colors.grey.shade900.withOpacity(0.2) : Colors.white);
 
     return GestureDetector(
       onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition, node, provider),
