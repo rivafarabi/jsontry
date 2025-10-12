@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:universal_platform/universal_platform.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:fluent_ui/fluent_ui.dart' as fluent;
+import 'package:desktop_drop/desktop_drop.dart';
 import '../providers/json_provider.dart';
 import '../widgets/json_tree_view.dart';
 import '../widgets/search_bar_widget.dart';
@@ -125,6 +126,21 @@ class JsonViewerScreen extends StatelessWidget {
   }
 
   Widget _buildContentArea(BuildContext context, JsonProvider provider) {
+    return DropTarget(
+      onDragDone: (detail) {
+        final files = detail.files;
+        if (files.isNotEmpty) {
+          final file = files.first;
+          if (file.path.toLowerCase().endsWith('.json')) {
+            provider.loadJsonFromFile(file.path);
+          }
+        }
+      },
+      child: _buildContentAreaContent(context, provider),
+    );
+  }
+
+  Widget _buildContentAreaContent(BuildContext context, JsonProvider provider) {
     if (provider.isLoading) {
       if (UniversalPlatform.isMacOS) {
         return const Center(

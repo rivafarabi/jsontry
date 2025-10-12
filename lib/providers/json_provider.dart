@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
+import '../workers/search_worker.dart';
 
 class JsonNode {
   final String? key;
@@ -58,11 +60,15 @@ class JsonProvider extends ChangeNotifier {
   List<String> _searchResults = []; // Paths of matching nodes
   int _currentSearchIndex = -1;
   String? _filePath;
+  String? _fileName;
   int _fileSize = 0;
   DateTime? _loadTime;
   Duration? _loadDuration;
   bool _isLoading = false;
+  bool _isSearching = false;
   String? _error;
+  Timer? _searchDebounceTimer;
+  SearchWorker? _searchWorker;
 
   // Getters
   List<JsonNode> get nodes => _nodes; // Always return all nodes, no filtering
@@ -71,10 +77,12 @@ class JsonProvider extends ChangeNotifier {
   int get currentSearchIndex => _currentSearchIndex;
   int get searchResultsCount => _searchResults.length;
   String? get filePath => _filePath;
+  String? get fileName => _fileName;
   int get fileSize => _fileSize;
   DateTime? get loadTime => _loadTime;
   Duration? get loadDuration => _loadDuration;
   bool get isLoading => _isLoading;
+  bool get isSearching => _isSearching;
   String? get error => _error;
 
   String get fileSizeFormatted {
@@ -82,6 +90,22 @@ class JsonProvider extends ChangeNotifier {
     if (_fileSize < 1024 * 1024) return '${(_fileSize / 1024).toStringAsFixed(1)} KB';
     if (_fileSize < 1024 * 1024 * 1024) return '${(_fileSize / (1024 * 1024)).toStringAsFixed(1)} MB';
     return '${(_fileSize / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+  String get windowTitle {
+    if (_fileName != null) {
+      return '$_fileName - JSONTry';
+    } else if (_filePath == 'Clipboard Content') {
+      return 'CLIPBOARD - JSONTry';
+    }
+    return 'JSONTry';
+  }
+
+  Future<void> _initializeSearchWorker() async {
+    if (_searchWorker == null) {
+      _searchWorker = SearchWorker();
+      await _searchWorker!.init();
+    }
   }
 
   Future<void> loadJsonFile() async {
@@ -100,6 +124,7 @@ class JsonProvider extends ChangeNotifier {
       if (result != null) {
         final file = File(result.files.single.path!);
         _filePath = result.files.single.path;
+        _fileName = result.files.single.name;
         _fileSize = await file.length();
 
         final stopwatch = Stopwatch()..start();
@@ -133,6 +158,7 @@ class JsonProvider extends ChangeNotifier {
       _isLoading = true;
       _error = null;
       _filePath = 'Clipboard Content';
+      _fileName = null;
       _fileSize = jsonString.length;
       notifyListeners();
 
@@ -149,6 +175,39 @@ class JsonProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _error = 'Error parsing JSON from clipboard: $e';
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadJsonFromFile(String filePath) async {
+    try {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+
+      final file = File(filePath);
+      _filePath = filePath;
+      _fileName = file.path.split('/').last;
+      _fileSize = await file.length();
+
+      final stopwatch = Stopwatch()..start();
+      _loadTime = DateTime.now();
+
+      // For large files (> 50MB), use streaming approach
+      if (_fileSize > 50 * 1024 * 1024) {
+        await _loadLargeJsonFile(file);
+      } else {
+        await _loadSmallJsonFile(file);
+      }
+
+      stopwatch.stop();
+      _loadDuration = stopwatch.elapsed;
+
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _error = 'Error loading file: $e';
       _isLoading = false;
       notifyListeners();
     }
@@ -275,49 +334,68 @@ class JsonProvider extends ChangeNotifier {
 
   void search(String query) {
     _searchQuery = query.toLowerCase();
+    
+    // Cancel any existing timer
+    _searchDebounceTimer?.cancel();
+    
+    if (query.isEmpty) {
+      _searchResults.clear();
+      _currentSearchIndex = -1;
+      _isSearching = false;
+      notifyListeners();
+      return;
+    }
+
+    // Start loading indicator
+    _isSearching = true;
+    notifyListeners();
+
+    // Set up debounced search with 500ms delay
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _performSearch();
+    });
+  }
+
+  Future<void> _performSearch() async {
+    try {
+      await _initializeSearchWorker();
+      final results = await _searchWorker!.search(_nodes, _searchQuery);
+      
+      _searchResults = results;
+      _currentSearchIndex = results.isNotEmpty ? 0 : -1;
+      
+      if (_searchResults.isNotEmpty) {
+        // Expand all paths that contain search matches
+        await _expandAllSearchPaths();
+      }
+      
+      _isSearching = false;
+      notifyListeners();
+    } catch (e) {
+      _isSearching = false;
+      notifyListeners();
+    }
+  }
+
+  void clearData() {
+    _searchDebounceTimer?.cancel();
+    _searchWorker?.dispose();
+    _searchWorker = null;
+    _nodes.clear();
+    _searchQuery = '';
     _searchResults.clear();
     _currentSearchIndex = -1;
-
-    if (_searchQuery.isNotEmpty) {
-      _findMatches(_nodes);
-      if (_searchResults.isNotEmpty) {
-        _currentSearchIndex = 0;
-        // Expand all paths that contain search matches
-        _expandSearchPaths();
-      }
-    }
+    _filePath = null;
+    _fileName = null;
+    _fileSize = 0;
+    _loadTime = null;
+    _loadDuration = null;
+    _isSearching = false;
+    _error = null;
     notifyListeners();
   }
 
-  void _findMatches(List<JsonNode> nodes) {
-    for (JsonNode node in nodes) {
-      bool matches = false;
-
-      // Check if key matches
-      if (node.key != null && node.key!.toLowerCase().contains(_searchQuery)) {
-        matches = true;
-      }
-
-      // Check if value matches (for primitive values)
-      if (node.type != JsonNodeType.object && node.type != JsonNodeType.array) {
-        String valueString = node.value?.toString().toLowerCase() ?? '';
-        if (valueString.contains(_searchQuery)) {
-          matches = true;
-        }
-      }
-
-      if (matches) {
-        _searchResults.add(node.path);
-      }
-
-      // Check children recursively
-      if (node.children != null) {
-        _findMatches(node.children!);
-      }
-    }
-  }
-
-  void _expandSearchPaths() {
+  Future<void> _expandAllSearchPaths() async {
     for (String path in _searchResults) {
       _expandParentPaths(path);
     }
@@ -374,14 +452,10 @@ class JsonProvider extends ChangeNotifier {
     return currentSearchResultPath == nodePath;
   }
 
-  void clearData() {
-    _nodes.clear();
-    _searchQuery = '';
-    _filePath = null;
-    _fileSize = 0;
-    _loadTime = null;
-    _loadDuration = null;
-    _error = null;
-    notifyListeners();
+  @override
+  void dispose() {
+    _searchDebounceTimer?.cancel();
+    _searchWorker?.dispose();
+    super.dispose();
   }
 }

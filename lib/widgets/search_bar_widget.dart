@@ -16,6 +16,16 @@ class SearchBarWidget extends StatefulWidget {
 class _SearchBarWidgetState extends State<SearchBarWidget> {
   final TextEditingController _searchController = TextEditingController();
 
+  void _onSubmitted(String value) {
+    if (value.length >= 3 || value.isEmpty) {
+      if (UniversalPlatform.isMacOS) {
+        Provider.of<JsonProvider>(context, listen: false).search(value);
+      } else {
+        context.read<JsonProvider>().search(value);
+      }
+    }
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -51,6 +61,7 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
             children: [
               Expanded(
                 child: MacosSearchField(
+                  maxLines: 1,
                   placeholder: 'Search keys and values (min 3 characters)...',
                   onChanged: (value) {
                     if (value.length >= 3 || value.isEmpty) {
@@ -69,9 +80,7 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    provider.searchResultsCount > 0 
-                      ? '${provider.currentSearchIndex + 1}/${provider.searchResultsCount}'
-                      : '0/0',
+                    provider.searchResultsCount > 0 ? '${provider.currentSearchIndex + 1}/${provider.searchResultsCount}' : '0/0',
                     style: const TextStyle(fontSize: 12),
                   ),
                 ),
@@ -127,6 +136,7 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
                   context.read<JsonProvider>().search(value);
                 }
               },
+              onSubmitted: _onSubmitted,
             ),
           ),
           const SizedBox(width: 8),
@@ -159,14 +169,10 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.grey.shade800
-                    : Colors.grey.shade100,
+                color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.grey.shade600
-                      : Colors.grey.shade300,
+                  color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade600 : Colors.grey.shade300,
                 ),
               ),
               child: TextField(
@@ -194,20 +200,17 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
                     context.read<JsonProvider>().search(value);
                   }
                 },
+                onSubmitted: _onSubmitted,
               ),
             ),
           ),
           const SizedBox(width: 12),
           Container(
             decoration: BoxDecoration(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.grey.shade800
-                  : Colors.grey.shade100,
+              color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade100,
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.grey.shade600
-                    : Colors.grey.shade300,
+                color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade600 : Colors.grey.shade300,
               ),
             ),
             child: IconButton(

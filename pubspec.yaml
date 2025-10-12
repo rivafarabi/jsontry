@@ -39,6 +39,7 @@ dependencies:
   # File handling
   file_picker: ^6.1.1
   path: ^1.8.3
+  desktop_drop: ^0.4.4
   
   # JSON processing
   stream_transform: ^2.1.0

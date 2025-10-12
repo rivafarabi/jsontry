@@ -21,7 +21,7 @@ class JsonTryApp extends StatelessWidget {
         builder: (context, jsonProvider, child) {
           if (UniversalPlatform.isMacOS) {
             return MacosApp(
-              title: 'JsonTry Viewer',
+              title: jsonProvider.windowTitle,
               theme: MacosThemeData.light(),
               darkTheme: MacosThemeData.dark(),
               home: const JsonViewerScreen(),
@@ -29,7 +29,7 @@ class JsonTryApp extends StatelessWidget {
             );
           } else if (UniversalPlatform.isWindows) {
             return fluent.FluentApp(
-              title: 'JsonTry Viewer',
+              title: jsonProvider.windowTitle,
               theme: fluent.FluentThemeData.light(),
               darkTheme: fluent.FluentThemeData.dark(),
               home: const JsonViewerScreen(),
@@ -37,7 +37,7 @@ class JsonTryApp extends StatelessWidget {
             );
           } else {
             return MaterialApp(
-              title: 'JsonTry Viewer',
+              title: jsonProvider.windowTitle,
               theme: ThemeData(
                 primarySwatch: Colors.blue,
                 useMaterial3: true,

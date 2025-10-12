@@ -104,18 +104,14 @@ class _JsonTreeViewState extends State<JsonTreeView> {
       final index = _findNodeIndex(provider, provider.nodes, currentPath, 0);
       if (index != -1 && _scrollController.hasClients) {
         // Calculate the scroll offset
-        final targetOffset = index * _estimatedItemHeight;
+        final targetOffset = index * _estimatedItemHeight - (MediaQuery.of(context).size.height / 2) + (_estimatedItemHeight);
         final maxScrollExtent = _scrollController.position.maxScrollExtent;
         final clampedOffset = targetOffset.clamp(0.0, maxScrollExtent);
 
         // Use a slight delay to ensure the widget is fully rendered
         Future.delayed(const Duration(milliseconds: 100), () {
           if (_scrollController.hasClients) {
-            _scrollController.animateTo(
-              clampedOffset,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-            );
+            _scrollController.jumpTo(clampedOffset);
           }
         });
       }
@@ -190,9 +186,9 @@ class _JsonTreeViewState extends State<JsonTreeView> {
 
     if (UniversalPlatform.isMacOS) {
       backgroundColor = isCurrentResult
-          ? Colors.orange.shade700
+          ? Colors.blue.shade600.withOpacity(0.8)
           : isSearchMatch
-              ? Colors.yellow.shade800.withOpacity(0.4)
+              ? Colors.blue.shade600.withOpacity(0.3)
               : isEven
                   ? Colors.grey.shade800.withOpacity(0.3)
                   : Colors.grey.shade900.withOpacity(0.2);
