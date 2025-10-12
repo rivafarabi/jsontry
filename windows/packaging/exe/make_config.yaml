@@ -1,0 +1,9 @@
+app_id: c2b9ce7c-27d8-51f2-b675-7371151cb6ea
+publisher: Riva Farabi (Bigvaria)
+publisher_url: https://bigvaria.com
+display_name: JSONTry
+create_desktop_icon: true
+script_template: inno-script.iss
+setup_icon_file: assets\icons\installer_icon.ico
+locales:
+    - en

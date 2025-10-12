@@ -1,0 +1,33 @@
+output: dist/
+artifact_name: "JSONTry_Setup_{{build_name}}{{#ext}}.{{ext}}{{/ext}}"
+releases:
+  - name: build-staging
+    jobs:
+      - name: build-staging-windows
+        package:
+          platform: windows
+          target: exe
+      - name: build-staging-macos
+        package:
+          platform: macos
+          target: dmg
+  - name: release-production
+    jobs:
+      - name: release-prod-windows
+        package:
+          platform: windows
+          target: exe
+        publish:
+          target: github
+          args:
+            repo-owner: rivafarabi
+            repo-name: jsontry
+      - name: release-prod-macos
+        package:
+          platform: macos
+          target: dmg
+        publish:
+          target: github
+          args:
+            repo-owner: rivafarabi
+            repo-name: jsontry
