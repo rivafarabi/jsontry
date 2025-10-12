@@ -1,0 +1,95 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "name": "John Doe",
+      "email": "john.doe@example.com",
+      "age": 28,
+      "isActive": true,
+      "address": {
+        "street": "123 Main St",
+        "city": "New York",
+        "zipCode": "10001",
+        "country": "USA"
+      },
+      "hobbies": ["reading", "swimming", "coding"],
+      "metadata": {
+        "createdAt": "2023-01-15T10:30:00Z",
+        "lastLogin": "2023-12-01T14:22:33Z",
+        "preferences": {
+          "theme": "dark",
+          "notifications": true,
+          "language": "en"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "name": "Jane Smith",
+      "email": "jane.smith@example.com",
+      "age": 32,
+      "isActive": false,
+      "address": {
+        "street": "456 Oak Ave",
+        "city": "Los Angeles",
+        "zipCode": "90210",
+        "country": "USA"
+      },
+      "hobbies": ["photography", "traveling", "cooking"],
+      "metadata": {
+        "createdAt": "2023-02-20T09:15:00Z",
+        "lastLogin": "2023-11-28T16:45:12Z",
+        "preferences": {
+          "theme": "light",
+          "notifications": false,
+          "language": "es"
+        }
+      }
+    }
+  ],
+  "products": [
+    {
+      "id": 101,
+      "name": "Laptop",
+      "category": "Electronics",
+      "price": 999.99,
+      "inStock": true,
+      "specifications": {
+        "processor": "Intel i7",
+        "memory": "16GB RAM",
+        "storage": "512GB SSD",
+        "display": "15.6 inch"
+      },
+      "tags": ["computer", "work", "portable"]
+    },
+    {
+      "id": 102,
+      "name": "Coffee Maker",
+      "category": "Appliances",
+      "price": 79.99,
+      "inStock": false,
+      "specifications": {
+        "capacity": "12 cups",
+        "material": "Stainless Steel",
+        "features": ["programmable", "auto-shutoff"]
+      },
+      "tags": ["kitchen", "coffee", "morning"]
+    }
+  ],
+  "stats": {
+    "totalUsers": 2,
+    "activeUsers": 1,
+    "totalProducts": 2,
+    "averagePrice": 539.99,
+    "lastUpdated": "2023-12-01T12:00:00Z"
+  },
+  "config": {
+    "apiVersion": "v1.2.3",
+    "environment": "production",
+    "features": {
+      "enableLogging": true,
+      "enableAnalytics": false,
+      "maxFileSize": 104857600
+    }
+  }
+}
