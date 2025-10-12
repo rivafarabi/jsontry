@@ -101,6 +101,19 @@ class JsonProvider extends ChangeNotifier {
     return 'JSONTry';
   }
 
+  List<JsonNode> flattenNodes(List<JsonNode> nodes) {
+    List<JsonNode> flatList = [];
+
+    for (var node in nodes) {
+      flatList.add(node);
+      if (node.isExpanded && node.children != null) {
+        flatList.addAll(flattenNodes(node.children!));
+      }
+    }
+
+    return flatList;
+  }
+
   Future<void> _initializeSearchWorker() async {
     if (_searchWorker == null) {
       _searchWorker = SearchWorker();
@@ -334,10 +347,10 @@ class JsonProvider extends ChangeNotifier {
 
   void search(String query) {
     _searchQuery = query.toLowerCase();
-    
+
     // Cancel any existing timer
     _searchDebounceTimer?.cancel();
-    
+
     if (query.isEmpty) {
       _searchResults.clear();
       _currentSearchIndex = -1;
@@ -360,15 +373,15 @@ class JsonProvider extends ChangeNotifier {
     try {
       await _initializeSearchWorker();
       final results = await _searchWorker!.search(_nodes, _searchQuery);
-      
+
       _searchResults = results;
       _currentSearchIndex = results.isNotEmpty ? 0 : -1;
-      
+
       if (_searchResults.isNotEmpty) {
         // Expand all paths that contain search matches
         await _expandAllSearchPaths();
       }
-      
+
       _isSearching = false;
       notifyListeners();
     } catch (e) {

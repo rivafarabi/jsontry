@@ -70,28 +70,24 @@ class _JsonTreeViewState extends State<JsonTreeView> {
                 _scrollToCurrentSearchResult(provider);
               });
 
+              var flattenedNodes = provider.flattenNodes(provider.nodes);
+              var dataLength = flattenedNodes.length;
+
               return ListView.builder(
                 controller: _scrollController,
-                itemCount: provider.nodes.length,
+                itemCount: dataLength,
                 itemBuilder: (context, index) {
-                  return _buildNodeItem(context, provider.nodes[index], provider, globalIndex: index);
+                  return _buildNodeRow(context, flattenedNodes[index], provider, index);
                 },
+                addAutomaticKeepAlives: false,
+                addRepaintBoundaries: true,
+                addSemanticIndexes: false,
+                cacheExtent: 200,
               );
             },
           ),
         );
       },
-    );
-  }
-
-  Widget _buildNodeItem(BuildContext context, JsonNode node, JsonProvider provider, {int globalIndex = 0}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildNodeRow(context, node, provider, globalIndex),
-        if (node.isExpanded && node.children != null)
-          ...node.children!.asMap().entries.map((entry) => _buildNodeItem(context, entry.value, provider, globalIndex: globalIndex + entry.key + 1)),
-      ],
     );
   }
 
@@ -181,7 +177,16 @@ class _JsonTreeViewState extends State<JsonTreeView> {
     final isEven = globalIndex % 2 == 0;
     final isSearchMatch = provider.isSearchMatch(node.path);
     final isCurrentResult = provider.isCurrentSearchResult(node.path);
-    final isCollapsible = node.type == JsonNodeType.object || node.type == JsonNodeType.array;
+    late final bool isCollapsible;
+
+    if (node.type == JsonNodeType.object) {
+      isCollapsible = node.value is Map<String, dynamic> && (node.value as Map<String, dynamic>).isNotEmpty;
+    } else if (node.type == JsonNodeType.array) {
+      isCollapsible = node.value is List && (node.value as List).isNotEmpty;
+    } else {
+      isCollapsible = false;
+    }
+
     late Color backgroundColor;
 
     if (UniversalPlatform.isMacOS) {
@@ -213,7 +218,7 @@ class _JsonTreeViewState extends State<JsonTreeView> {
     return GestureDetector(
       onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition, node, provider),
       onTap: () {
-        if (node.type == JsonNodeType.object || node.type == JsonNodeType.array) {
+        if (isCollapsible) {
           provider.toggleNode(node.path);
         }
       },
@@ -293,6 +298,10 @@ class _JsonTreeViewState extends State<JsonTreeView> {
 
   Widget _buildExpansionIcon(JsonNode node) {
     if (node.type == JsonNodeType.object || node.type == JsonNodeType.array) {
+      if (node.children == null || node.children!.isEmpty) {
+        return const SizedBox.shrink();
+      }
+
       return Container(
         width: 14,
         height: 14,
