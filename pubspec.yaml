@@ -52,6 +52,7 @@ dependencies:
   
   # Platform detection
   universal_platform: ^1.0.0+1
+  native_context_menu: ^0.2.2+5
 
 dev_dependencies:
   flutter_test:

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:fluent_ui/fluent_ui.dart' as fluent;
+import 'package:native_context_menu/native_context_menu.dart';
 import 'package:provider/provider.dart';
 import 'package:universal_platform/universal_platform.dart';
 import 'package:jsontry/providers/json_provider.dart';
@@ -16,6 +17,25 @@ class JsonTreeView extends StatefulWidget {
 class _JsonTreeViewState extends State<JsonTreeView> {
   String? _lastSearchQuery;
 
+  // Performance optimization: Cache color schemes to avoid repeated calculations
+  late final _ColorScheme _colorScheme;
+  late final _StyleCache _styleCache;
+
+  @override
+  void initState() {
+    super.initState();
+    _colorScheme = _ColorScheme();
+    _styleCache = _StyleCache();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Update color scheme when theme changes
+    _colorScheme.updateColors(context);
+    _styleCache.updateStyles();
+  }
+
   @override
   void dispose() {
     context.read<JsonProvider>().scrollController.dispose();
@@ -24,22 +44,12 @@ class _JsonTreeViewState extends State<JsonTreeView> {
 
   @override
   Widget build(BuildContext context) {
-    late Color backgroundColor;
-
-    if (UniversalPlatform.isMacOS) {
-      backgroundColor = MacosTheme.of(context).canvasColor;
-    } else if (UniversalPlatform.isWindows) {
-      backgroundColor = fluent.FluentTheme.of(context).scaffoldBackgroundColor;
-    } else {
-      backgroundColor = Theme.of(context).scaffoldBackgroundColor;
-    }
-
     return Container(
       decoration: BoxDecoration(
-        color: backgroundColor,
+        color: _colorScheme.backgroundColor,
         border: Border(
           top: BorderSide(
-            color: Theme.of(context).dividerColor,
+            color: _colorScheme.dividerColor,
             width: 1,
           ),
         ),
@@ -56,305 +66,89 @@ class _JsonTreeViewState extends State<JsonTreeView> {
             _lastSearchQuery = provider.searchQuery;
           }
 
-          return ListView.builder(
-            controller: provider.scrollController,
-            itemCount: provider.nodes.length,
-            itemBuilder: (context, index) {
-              return _buildNodeRow(context, provider.nodes[index], provider, index);
-            },
-            addAutomaticKeepAlives: false,
-            addRepaintBoundaries: true,
-            addSemanticIndexes: false,
-            cacheExtent: 100,
-          );
+          // Use optimized ListView for large datasets
+          return _buildOptimizedListView(provider);
         },
       ),
     );
   }
 
-  Widget _buildNodeRow(BuildContext context, JsonNode node, JsonProvider provider, int globalIndex) {
-    final isDark = _isDarkMode(context);
-    final isEven = globalIndex % 2 == 0;
-    final isSearchMatch = provider.isSearchMatch(node.path);
-    final isCurrentResult = provider.isCurrentSearchResult(node.path);
-    late final bool isCollapsible;
+  Widget _buildOptimizedListView(JsonProvider provider) {
+    final itemCount = provider.nodes.length;
 
-    if (node.type == JsonNodeType.object) {
-      isCollapsible = node.value is Map<String, dynamic> && (node.value as Map<String, dynamic>).isNotEmpty;
-    } else if (node.type == JsonNodeType.array) {
-      isCollapsible = node.value is List && (node.value as List).isNotEmpty;
+    // For very large lists, use additional optimizations
+    if (itemCount > 1000) {
+      return ListView.builder(
+        controller: provider.scrollController,
+        itemCount: itemCount,
+        itemBuilder: (context, index) {
+          return _OptimizedJsonRow(
+            node: provider.nodes[index],
+            provider: provider,
+            index: index,
+            colorScheme: _colorScheme,
+            styleCache: _styleCache,
+            onTap: () => _handleNodeTap(provider.nodes[index], provider),
+            onContextMenu: _handleContextMenuAction,
+          );
+        },
+        // Performance optimizations for large lists
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: true,
+        addSemanticIndexes: false,
+        cacheExtent: 500, // Increased cache for better scrolling
+        physics: const ClampingScrollPhysics(), // Better for large lists
+        itemExtent: 25, // Fixed height for better performance
+      );
     } else {
-      isCollapsible = false;
-    }
-
-    Color backgroundColor = isCurrentResult
-        ? (isDark ? Colors.blue.shade600.withOpacity(0.8) : Colors.blue.shade200.withOpacity(0.8))
-        : isSearchMatch
-            ? (isDark ? Colors.blue.shade600.withOpacity(0.3) : Colors.blue.shade200.withOpacity(0.3))
-            : isEven
-                ? (isDark ? Colors.grey.shade800.withOpacity(0.3) : Colors.grey.shade50)
-                : (isDark ? Colors.grey.shade900.withOpacity(0.2) : Colors.white);
-
-    return GestureDetector(
-      onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition, node, provider),
-      onTap: () {
-        if (isCollapsible) {
-          provider.toggleNode(node.path);
-        }
-      },
-      child: Container(
-        padding: EdgeInsets.only(
-          left: (node.depth * 16.0),
-          right: 12.0,
-          top: 3.0, // Reduced vertical padding
-          bottom: 3.0,
-        ),
-        decoration: BoxDecoration(
-          color: backgroundColor,
-        ),
-        child: Row(
-          children: [
-            // Indentation
-            SizedBox(
-              width: (isCollapsible ? 8.0 : 30) + (node.depth * 8.0),
-            ),
-
-            // Expansion icon
-            _buildExpansionIcon(node),
-
-            // Key
-            if (node.key != null) ...[
-              Text(
-                '${node.key}',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: _getKeyColor(context),
-                  fontFamily: 'SF Mono',
-                  fontSize: 11,
-                ),
-              ),
-              Text(
-                ' : ',
-                style: TextStyle(
-                  color: _getKeyColor(context),
-                  fontFamily: 'SF Mono',
-                  fontSize: 11, // Reduced from 13
-                ),
-              ),
-            ],
-
-            // Value
-            Expanded(
-              child: _buildValueWidget(context, node),
-            ),
-
-            const SizedBox(width: 8), // Reduced spacing
-
-            // Type indicator
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), // Reduced padding
-              decoration: BoxDecoration(
-                color: _getTypeColor(node.type).withOpacity(0.15),
-                borderRadius: BorderRadius.circular(4), // Reduced radius
-                border: Border.all(
-                  color: _getTypeColor(node.type).withOpacity(0.3),
-                  width: 1,
-                ),
-              ),
-              child: Text(
-                _getTypeLabel(node),
-                style: TextStyle(
-                  fontSize: 10, // Reduced from 11
-                  color: _getTypeColor(node.type),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildExpansionIcon(JsonNode node) {
-    if (node.type == JsonNodeType.object || node.type == JsonNodeType.array) {
-      if (node.children == null || node.children!.isEmpty) {
-        return const SizedBox.shrink();
-      }
-
-      return Container(
-        width: 14,
-        height: 14,
-        margin: const EdgeInsets.only(right: 8),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: Colors.grey.shade400,
-            width: 1,
-          ),
-          borderRadius: BorderRadius.circular(2),
-        ),
-        child: Icon(
-          node.isExpanded ? Icons.remove : Icons.add,
-          size: 10,
-          color: Colors.grey.shade600,
-        ),
+      // Use standard ListView for smaller lists
+      return ListView.builder(
+        controller: provider.scrollController,
+        itemCount: itemCount,
+        itemBuilder: (context, index) {
+          return _OptimizedJsonRow(
+            node: provider.nodes[index],
+            provider: provider,
+            index: index,
+            colorScheme: _colorScheme,
+            styleCache: _styleCache,
+            onTap: () => _handleNodeTap(provider.nodes[index], provider),
+            onContextMenu: _handleContextMenuAction,
+          );
+        },
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: true,
+        addSemanticIndexes: false,
+        cacheExtent: 100,
       );
     }
-    return const SizedBox.shrink();
   }
 
-  Widget _buildValueWidget(BuildContext context, JsonNode node) {
-    const baseStyle = TextStyle(
-      fontFamily: 'SF Mono',
-      fontSize: 11,
-    );
-
-    switch (node.type) {
-      case JsonNodeType.object:
-        final objectMap = node.value as Map<String, dynamic>;
-        return Text(
-          node.isExpanded ? '{' : '{ ${objectMap.length} ${objectMap.length == 1 ? 'item' : 'items'} }',
-          style: baseStyle.copyWith(
-            color: _getValueColor(context, node.type),
-            fontWeight: FontWeight.w500,
-          ),
-        );
-
-      case JsonNodeType.array:
-        final arrayList = node.value as List;
-        return Text(
-          node.isExpanded ? '[' : '[ ${arrayList.length} ${arrayList.length == 1 ? 'item' : 'items'} ]',
-          style: baseStyle.copyWith(
-            color: _getValueColor(context, node.type),
-            fontWeight: FontWeight.w500,
-          ),
-        );
-
-      case JsonNodeType.string:
-        return Text(
-          '"${node.value}"',
-          style: baseStyle.copyWith(
-            color: _getValueColor(context, node.type),
-          ),
-          overflow: TextOverflow.ellipsis,
-        );
-
-      case JsonNodeType.number:
-        return Text(
-          node.value.toString(),
-          style: baseStyle.copyWith(
-            color: _getValueColor(context, node.type),
-            fontWeight: FontWeight.w500,
-          ),
-        );
-
-      case JsonNodeType.boolean:
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: node.value ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            node.value.toString(),
-            style: baseStyle.copyWith(
-              color: _getValueColor(context, node.type),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        );
-
-      case JsonNodeType.nullValue:
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: Colors.grey.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            'null',
-            style: baseStyle.copyWith(
-              color: _getValueColor(context, node.type),
-              fontStyle: FontStyle.italic,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        );
+  void _handleNodeTap(JsonNode node, JsonProvider provider) {
+    final isCollapsible = _isNodeCollapsible(node);
+    if (isCollapsible) {
+      provider.toggleNode(node.path);
     }
   }
 
-  void _showContextMenu(BuildContext context, Offset position, JsonNode node, JsonProvider provider) {
-    showMenu(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx + 1,
-        position.dy + 1,
-      ),
-      items: [
-        PopupMenuItem(
-          value: 'copy_key',
-          enabled: node.key != null,
-          child: const Row(
-            children: [
-              Icon(Icons.copy, size: 16),
-              SizedBox(width: 8),
-              Text('Copy Key'),
-            ],
-          ),
-        ),
-        const PopupMenuItem(
-          value: 'copy_value',
-          child: Row(
-            children: [
-              Icon(Icons.copy, size: 16),
-              SizedBox(width: 8),
-              Text('Copy Value'),
-            ],
-          ),
-        ),
-        const PopupMenuItem(
-          value: 'copy_path',
-          child: Row(
-            children: [
-              Icon(Icons.route, size: 16),
-              SizedBox(width: 8),
-              Text('Copy Path'),
-            ],
-          ),
-        ),
-        if (node.type == JsonNodeType.object || node.type == JsonNodeType.array)
-          PopupMenuItem(
-            value: 'toggle_expand',
-            child: Row(
-              children: [
-                Icon(
-                  node.isExpanded ? Icons.unfold_less : Icons.unfold_more,
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Text(node.isExpanded ? 'Collapse' : 'Expand'),
-              ],
-            ),
-          ),
-      ],
-    ).then((value) {
-      if (value != null) {
-        _handleContextMenuAction(context, value, node, provider);
-      }
-    });
+  bool _isNodeCollapsible(JsonNode node) {
+    if (node.type == JsonNodeType.object) {
+      return node.value is Map<String, dynamic> && (node.value as Map<String, dynamic>).isNotEmpty;
+    } else if (node.type == JsonNodeType.array) {
+      return node.value is List && (node.value as List).isNotEmpty;
+    }
+    return false;
   }
 
   void _handleContextMenuAction(BuildContext context, String action, JsonNode node, JsonProvider provider) {
     switch (action) {
-      case 'copy_key':
+      case 'Copy Key':
         if (node.key != null) {
           Clipboard.setData(ClipboardData(text: node.key!));
           _showCopySnackBar(context, 'Key copied to clipboard');
         }
         break;
-      case 'copy_value':
+      case 'Copy Value':
         String valueText;
         if (node.type == JsonNodeType.string) {
           valueText = node.value.toString();
@@ -364,11 +158,12 @@ class _JsonTreeViewState extends State<JsonTreeView> {
         Clipboard.setData(ClipboardData(text: valueText));
         _showCopySnackBar(context, 'Value copied to clipboard');
         break;
-      case 'copy_path':
+      case 'Copy Path':
         Clipboard.setData(ClipboardData(text: node.path));
         _showCopySnackBar(context, 'Path copied to clipboard');
         break;
-      case 'toggle_expand':
+      case 'Expand':
+      case 'Collapse':
         provider.toggleNode(node.path);
         break;
     }
@@ -390,61 +185,282 @@ class _JsonTreeViewState extends State<JsonTreeView> {
       );
     }
   }
+}
 
-  bool _isDarkMode(BuildContext context) {
+// Performance optimization classes
+class _ColorScheme {
+  late Color backgroundColor;
+  late Color keyColor;
+  late Color dividerColor;
+  late Color evenRowColor;
+  late Color oddRowColor;
+  late Color searchMatchColor;
+  late Color currentResultColor;
+  late bool isDark;
+
+  // Cached type colors
+  static const Map<JsonNodeType, Color> _typeColors = {
+    JsonNodeType.object: Color(0xFF2196F3), // Blue
+    JsonNodeType.array: Color(0xFF3F51B5), // Indigo
+    JsonNodeType.string: Color(0xFF4CAF50), // Green
+    JsonNodeType.number: Color(0xFFFF9800), // Orange
+    JsonNodeType.boolean: Color(0xFF9C27B0), // Purple
+    JsonNodeType.nullValue: Color(0xFF757575), // Grey
+  };
+
+  void updateColors(BuildContext context) {
     if (UniversalPlatform.isMacOS) {
-      return MacosTheme.of(context).brightness == Brightness.dark;
+      backgroundColor = MacosTheme.of(context).canvasColor;
     } else if (UniversalPlatform.isWindows) {
-      return fluent.FluentTheme.of(context).brightness == Brightness.dark;
+      final fluentTheme = fluent.FluentTheme.maybeOf(context);
+      backgroundColor = fluentTheme?.scaffoldBackgroundColor ?? Theme.of(context).scaffoldBackgroundColor;
     } else {
-      return Theme.of(context).brightness == Brightness.dark;
+      backgroundColor = Theme.of(context).scaffoldBackgroundColor;
     }
+
+    isDark = Theme.of(context).brightness == Brightness.dark;
+    keyColor = isDark ? Colors.blue.shade300 : Colors.blue.shade700;
+    dividerColor = Theme.of(context).dividerColor;
+
+    evenRowColor = isDark ? Colors.grey.shade800.withOpacity(0.3) : Colors.grey.shade50;
+    oddRowColor = isDark ? Colors.grey.shade900.withOpacity(0.2) : Colors.white;
+
+    searchMatchColor = isDark ? Colors.blue.shade600.withOpacity(0.3) : Colors.blue.shade200.withOpacity(0.3);
+    currentResultColor = isDark ? Colors.blue.shade600.withOpacity(0.8) : Colors.blue.shade200.withOpacity(0.8);
   }
 
-  Color _getKeyColor(BuildContext context) {
-    final isDark = _isDarkMode(context);
+  Color getTypeColor(JsonNodeType type) => _typeColors[type]!;
 
-    return isDark
-        ? const Color(0xFF81D4FA) // Light blue
-        : const Color(0xFF1976D2); // Dark blue
-  }
-
-  Color _getValueColor(BuildContext context, JsonNodeType type) {
-    final isDark = _isDarkMode(context);
-
+  Color getValueColor(JsonNodeType type) {
     switch (type) {
       case JsonNodeType.string:
-        return isDark ? const Color(0xFF81C784) : const Color(0xFF388E3C); // Green
+        return isDark ? Colors.green.shade300 : Colors.green.shade700;
       case JsonNodeType.number:
-        return isDark ? const Color(0xFFFFB74D) : const Color(0xFFF57C00); // Orange
+        return isDark ? Colors.orange.shade300 : Colors.orange.shade700;
       case JsonNodeType.boolean:
-        return isDark ? const Color(0xFFBA68C8) : const Color(0xFF7B1FA2); // Purple
+        return isDark ? Colors.purple.shade300 : Colors.purple.shade700;
       case JsonNodeType.nullValue:
         return isDark ? Colors.grey.shade400 : Colors.grey.shade600;
-      case JsonNodeType.object:
-      case JsonNodeType.array:
-        return isDark ? Colors.grey.shade300 : Colors.grey.shade700;
+      default:
+        return isDark ? Colors.blue.shade300 : Colors.blue.shade700;
     }
   }
+}
 
-  Color _getTypeColor(JsonNodeType type) {
-    switch (type) {
+class _StyleCache {
+  late TextStyle baseStyle;
+  late TextStyle keyStyle;
+  late TextStyle colonStyle;
+
+  void updateStyles() {
+    baseStyle = const TextStyle(
+      fontFamily: 'SF Mono',
+      fontSize: 11,
+    );
+
+    keyStyle = baseStyle.copyWith(
+      fontWeight: FontWeight.w600,
+      fontSize: 11,
+    );
+
+    colonStyle = baseStyle.copyWith(
+      fontSize: 11,
+    );
+  }
+}
+
+// Optimized row widget that memoizes expensive calculations
+class _OptimizedJsonRow extends StatelessWidget {
+  final JsonNode node;
+  final JsonProvider provider;
+  final int index;
+  final _ColorScheme colorScheme;
+  final _StyleCache styleCache;
+  final VoidCallback? onTap;
+  final Function(BuildContext context, String action, JsonNode node, JsonProvider provider)? onContextMenu;
+
+  const _OptimizedJsonRow({
+    required this.node,
+    required this.provider,
+    required this.index,
+    required this.colorScheme,
+    required this.styleCache,
+    this.onTap,
+    this.onContextMenu,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Cache expensive calculations
+    final isEven = index % 2 == 0;
+    final isSearchMatch = provider.isSearchMatch(node.path);
+    final isCurrentResult = provider.isCurrentSearchResult(node.path);
+    final isCollapsible = _isCollapsible();
+    final backgroundColor = _getBackgroundColor(isEven, isSearchMatch, isCurrentResult);
+
+    return ContextMenuRegion(
+      onItemSelected: (item) => onContextMenu != null ? onContextMenu!(context, item.title, node, provider) : null,
+      menuItems: [
+        MenuItem(title: 'Copy Key'),
+        MenuItem(title: 'Copy Value'),
+        MenuItem(title: 'Copy Path'),
+        if (isCollapsible) MenuItem(title: node.isExpanded ? 'Collapse' : 'Expand'),
+      ],
+      child: GestureDetector(
+        onTap: isCollapsible ? onTap : null,
+        child: Container(
+          height: 25, // Fixed height for better scrolling performance
+          padding: EdgeInsets.only(
+            left: (node.depth * 16.0),
+            right: 12.0,
+            top: 3.0,
+            bottom: 3.0,
+          ),
+          decoration: BoxDecoration(color: backgroundColor),
+          child: Row(
+            children: [
+              SizedBox(width: (isCollapsible ? 8.0 : 30) + (node.depth * 8.0)),
+              _buildExpansionIcon(isCollapsible),
+              if (node.key != null) ...[
+                Text(
+                  '${node.key}',
+                  style: styleCache.keyStyle.copyWith(color: colorScheme.keyColor),
+                ),
+                Text(
+                  ' : ',
+                  style: styleCache.colonStyle.copyWith(color: colorScheme.keyColor),
+                ),
+              ],
+              Expanded(child: _buildValueWidget()),
+              const SizedBox(width: 8),
+              _buildTypeIndicator(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool _isCollapsible() {
+    if (node.type == JsonNodeType.object) {
+      return node.value is Map<String, dynamic> && (node.value as Map<String, dynamic>).isNotEmpty;
+    } else if (node.type == JsonNodeType.array) {
+      return node.value is List && (node.value as List).isNotEmpty;
+    }
+    return false;
+  }
+
+  Color _getBackgroundColor(bool isEven, bool isSearchMatch, bool isCurrentResult) {
+    if (isCurrentResult) return colorScheme.currentResultColor;
+    if (isSearchMatch) return colorScheme.searchMatchColor;
+    return isEven ? colorScheme.evenRowColor : colorScheme.oddRowColor;
+  }
+
+  Widget _buildExpansionIcon(bool isCollapsible) {
+    if (!isCollapsible) return const SizedBox.shrink();
+
+    if (node.children == null || node.children!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      width: 14,
+      height: 14,
+      margin: const EdgeInsets.only(right: 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade400, width: 1),
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: Icon(
+        node.isExpanded ? Icons.remove : Icons.add,
+        size: 10,
+        color: Colors.grey.shade600,
+      ),
+    );
+  }
+
+  Widget _buildValueWidget() {
+    final style = styleCache.baseStyle.copyWith(
+      color: colorScheme.getValueColor(node.type),
+    );
+
+    switch (node.type) {
       case JsonNodeType.object:
-        return const Color(0xFF2196F3); // Blue
+        final objectMap = node.value as Map<String, dynamic>;
+        return Text(
+          node.isExpanded ? '{' : '{ ${objectMap.length} ${objectMap.length == 1 ? 'item' : 'items'} }',
+          style: style.copyWith(fontWeight: FontWeight.w500),
+        );
+
       case JsonNodeType.array:
-        return const Color(0xFF3F51B5); // Indigo
+        final arrayList = node.value as List;
+        return Text(
+          node.isExpanded ? '[' : '[ ${arrayList.length} ${arrayList.length == 1 ? 'item' : 'items'} ]',
+          style: style.copyWith(fontWeight: FontWeight.w500),
+        );
+
       case JsonNodeType.string:
-        return const Color(0xFF4CAF50); // Green
+        return Text(
+          '"${node.value}"',
+          style: style,
+          overflow: TextOverflow.ellipsis,
+        );
+
       case JsonNodeType.number:
-        return const Color(0xFFFF9800); // Orange
+        return Text(
+          node.value.toString(),
+          style: style.copyWith(fontWeight: FontWeight.w500),
+        );
+
       case JsonNodeType.boolean:
-        return const Color(0xFF9C27B0); // Purple
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          child: Text(
+            node.value.toString(),
+            style: style.copyWith(fontWeight: FontWeight.w600),
+          ),
+        );
+
       case JsonNodeType.nullValue:
-        return const Color(0xFF757575); // Grey
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          child: Text(
+            'null',
+            style: style.copyWith(
+              fontStyle: FontStyle.italic,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        );
     }
   }
 
-  String _getTypeLabel(JsonNode node) {
+  Widget _buildTypeIndicator() {
+    final typeColor = colorScheme.getTypeColor(node.type);
+    final typeLabel = _getTypeLabel();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: typeColor.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: typeColor.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Text(
+        typeLabel,
+        style: TextStyle(
+          fontSize: 10,
+          color: typeColor,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  String _getTypeLabel() {
     switch (node.type) {
       case JsonNodeType.object:
         final objectMap = node.value as Map<String, dynamic>;
