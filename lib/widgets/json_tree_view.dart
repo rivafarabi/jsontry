@@ -210,15 +210,17 @@ class _ColorScheme {
 
   void updateColors(BuildContext context) {
     if (UniversalPlatform.isMacOS) {
+      isDark = MacosTheme.of(context).brightness == Brightness.dark;
       backgroundColor = MacosTheme.of(context).canvasColor;
     } else if (UniversalPlatform.isWindows) {
+      isDark = fluent.FluentTheme.of(context).brightness == Brightness.dark;
       final fluentTheme = fluent.FluentTheme.maybeOf(context);
       backgroundColor = fluentTheme?.scaffoldBackgroundColor ?? Theme.of(context).scaffoldBackgroundColor;
     } else {
+      isDark = Theme.of(context).brightness == Brightness.dark;
       backgroundColor = Theme.of(context).scaffoldBackgroundColor;
     }
 
-    isDark = Theme.of(context).brightness == Brightness.dark;
     keyColor = isDark ? Colors.blue.shade300 : Colors.blue.shade700;
     dividerColor = Theme.of(context).dividerColor;
 
