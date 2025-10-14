@@ -86,6 +86,9 @@ class JsonProvider extends ChangeNotifier {
 
   Future<void> loadJsonFile() async {
     try {
+      // Clear previous data first to prevent memory accumulation
+      clearData();
+      
       _isLoading = true;
       _error = null;
       notifyListeners();
@@ -131,6 +134,9 @@ class JsonProvider extends ChangeNotifier {
 
   Future<void> loadJsonFromString(String jsonString) async {
     try {
+      // Clear previous data first to prevent memory accumulation
+      clearData();
+      
       _isLoading = true;
       _error = null;
       _filePath = 'Clipboard Content';
@@ -352,6 +358,7 @@ class JsonProvider extends ChangeNotifier {
     _searchDebounceTimer?.cancel();
     _searchController.clear();
     _nodes.clear();
+    _flattenNodes.clear();
     _searchQuery = '';
     _searchResults.clear();
     _currentSearchIndex = -1;
