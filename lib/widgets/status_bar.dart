@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jsontry/models/json_node.dart';
 import 'package:provider/provider.dart';
 import 'package:universal_platform/universal_platform.dart';
 import 'package:macos_ui/macos_ui.dart';
@@ -27,7 +28,7 @@ class StatusBar extends StatelessWidget {
           child: Row(
             children: [
               // File info
-              if (provider.filePath != null) ...[
+              if (MediaQuery.of(context).size.width > 600 && provider.filePath != null) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(

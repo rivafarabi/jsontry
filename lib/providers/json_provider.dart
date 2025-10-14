@@ -4,73 +4,13 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/widgets.dart';
+import 'package:jsontry/models/json_node.dart';
 import 'package:jsontry/utils/path_utils.dart';
-import '../workers/search_worker.dart';
-
-class JsonNode {
-  final String? key;
-  final dynamic value;
-  final JsonNodeType type;
-  final int depth;
-  final String path;
-  final bool isExpanded;
-  final List<JsonNode>? children;
-
-  JsonNode({
-    this.key,
-    required this.value,
-    required this.type,
-    required this.depth,
-    required this.path,
-    this.isExpanded = false,
-    this.children,
-  });
-
-  JsonNode copyWith({
-    String? key,
-    dynamic value,
-    JsonNodeType? type,
-    int? depth,
-    String? path,
-    bool? isExpanded,
-    List<JsonNode>? children,
-  }) {
-    return JsonNode(
-      key: key ?? this.key,
-      value: value ?? this.value,
-      type: type ?? this.type,
-      depth: depth ?? this.depth,
-      path: path ?? this.path,
-      isExpanded: isExpanded ?? this.isExpanded,
-      children: children ?? this.children,
-    );
-  }
-
-  JsonNode withoutChildren() {
-    return JsonNode(
-      key: key,
-      value: value,
-      type: type,
-      depth: depth,
-      path: path,
-      isExpanded: isExpanded,
-    );
-  }
-}
-
-enum JsonNodeType {
-  object,
-  array,
-  string,
-  number,
-  boolean,
-  nullValue,
-}
+import 'package:jsontry/utils/search_controller.dart';
 
 class JsonProvider extends ChangeNotifier {
   List<JsonNode> _nodes = [];
   List<JsonNode> _flattenNodes = [];
-  ScrollController _scrollController = ScrollController();
   String? _lastScrolledPath;
   String _searchQuery = '';
   List<String> _searchResults = []; // Paths of matching nodes
@@ -84,7 +24,8 @@ class JsonProvider extends ChangeNotifier {
   bool _isSearching = false;
   String? _error;
   Timer? _searchDebounceTimer;
-  SearchWorker? _searchWorker;
+  final ScrollController _scrollController = ScrollController();
+  final SearchController _searchController = SearchController();
   final double _estimatedItemHeight = 25;
 
   // Performance tracking
@@ -128,6 +69,8 @@ class JsonProvider extends ChangeNotifier {
     return 'JSONTry';
   }
 
+  /// Recursively flatten the tree structure based on expansion state
+  /// This is used to provide a flat list of nodes for rendering in the tree view
   List<JsonNode> _getFlattenNodes(List<JsonNode> nodes) {
     List<JsonNode> flatList = [];
 
@@ -139,13 +82,6 @@ class JsonProvider extends ChangeNotifier {
     }
 
     return flatList;
-  }
-
-  Future<void> _initializeSearchWorker() async {
-    if (_searchWorker == null) {
-      _searchWorker = SearchWorker();
-      await _searchWorker!.init();
-    }
   }
 
   Future<void> loadJsonFile() async {
@@ -267,13 +203,9 @@ class JsonProvider extends ChangeNotifier {
     final content = await file.readAsString();
 
     // Parse in compute isolate to avoid blocking UI
-    final jsonData = await compute(_parseJsonInIsolate, content);
+    final jsonData = await compute(jsonDecode, content);
     _nodes = _parseJsonToNodes(jsonData);
     _flattenNodes = _getFlattenNodes(_nodes);
-  }
-
-  static dynamic _parseJsonInIsolate(String content) {
-    return jsonDecode(content);
   }
 
   List<JsonNode> _parseJsonToNodes(dynamic json, {String? parentKey, int depth = 0, String path = ''}) {
@@ -405,17 +337,9 @@ class JsonProvider extends ChangeNotifier {
 
   Future<void> _performSearch() async {
     try {
-      await _initializeSearchWorker();
-      final results = await _searchWorker!.search(_nodes, _searchQuery);
-
+      final results = _searchController.search(_nodes, _searchQuery);
       _searchResults = results;
       _currentSearchIndex = results.isNotEmpty ? 0 : -1;
-
-      if (_searchResults.isNotEmpty) {
-        // Expand all paths that contain search matches
-        await _expandAllSearchPaths();
-      }
-
       _isSearching = false;
       notifyListeners();
     } catch (e) {
@@ -426,8 +350,7 @@ class JsonProvider extends ChangeNotifier {
 
   void clearData() {
     _searchDebounceTimer?.cancel();
-    _searchWorker?.dispose();
-    _searchWorker = null;
+    _searchController.clear();
     _nodes.clear();
     _searchQuery = '';
     _searchResults.clear();
@@ -442,46 +365,6 @@ class JsonProvider extends ChangeNotifier {
     _expandedPathsCount = 0;
     _lastExpansionDuration = null;
     notifyListeners();
-  }
-
-  Future<void> _expandAllSearchPaths() async {
-    if (_searchResults.isEmpty) return;
-
-    final stopwatch = Stopwatch()..start();
-
-    // For large result sets, process in batches to avoid blocking the UI
-    const int batchSize = 50;
-    final Set<String> pathsToExpand = <String>{};
-
-    // Process search results in batches
-    for (int i = 0; i < _searchResults.length; i += batchSize) {
-      final int endIndex = (i + batchSize < _searchResults.length) ? i + batchSize : _searchResults.length;
-
-      final batch = _searchResults.sublist(i, endIndex);
-      for (String path in batch) {
-        collectParentPaths(path, pathsToExpand);
-      }
-
-      // Yield control to UI thread after each batch
-      if (i + batchSize < _searchResults.length) {
-        await Future.delayed(Duration.zero);
-      }
-    }
-
-    // Expand all collected paths in a single tree traversal
-    if (pathsToExpand.isNotEmpty) {
-      _nodes = expandPathsBatch(_nodes, pathsToExpand);
-      _flattenNodes = _getFlattenNodes(_nodes);
-    }
-
-    stopwatch.stop();
-    _expandedPathsCount = pathsToExpand.length;
-    _lastExpansionDuration = stopwatch.elapsed;
-
-    // Debug logging for performance monitoring (can be removed in production)
-    if (kDebugMode) {
-      print('Expanded ${pathsToExpand.length} paths in ${stopwatch.elapsedMilliseconds}ms for ${_searchResults.length} search results');
-    }
   }
 
   @visibleForTesting
@@ -575,6 +458,7 @@ class JsonProvider extends ChangeNotifier {
       // Find the index of the current search result in the flattened node list
       final index = _findNodeIndex(_nodes, currentPath, 0, skipFlatten: false);
       if (index != -1 && _scrollController.hasClients) {
+        _flattenNodes = _getFlattenNodes(_nodes);
         // Calculate the scroll offset
         final targetOffset = index * _estimatedItemHeight - (MediaQuery.of(context).size.height / 2) + (_estimatedItemHeight * 2);
         final maxScrollExtent = _scrollController.position.maxScrollExtent;
@@ -589,7 +473,7 @@ class JsonProvider extends ChangeNotifier {
   int _findNodeIndex(List<JsonNode> nodes, String targetPath, int currentIndex, {bool skipFlatten = true}) {
     final targetPathSegments = getPathSegments(targetPath);
 
-    for (final node in nodes) {
+    for (var node in nodes) {
       if (node.path == targetPath) {
         return currentIndex;
       }
@@ -618,6 +502,7 @@ class JsonProvider extends ChangeNotifier {
 
       if (!node.isExpanded && node.children != null) {
         toggleNode(node.path, skipFlatten: skipFlatten);
+        node = node.copyWith(isExpanded: true);
       }
 
       // If node is expanded and has children, search in children
@@ -647,7 +532,7 @@ class JsonProvider extends ChangeNotifier {
   @override
   void dispose() {
     _searchDebounceTimer?.cancel();
-    _searchWorker?.dispose();
+    _searchController.clear();
     super.dispose();
   }
 }

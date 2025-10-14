@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:jsontry/models/json_node.dart';
 import 'package:jsontry/providers/json_provider.dart';
 
 void main() {

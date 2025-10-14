@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:jsontry/models/json_node.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:native_context_menu/native_context_menu.dart';
