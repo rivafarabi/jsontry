@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:jsontry/models/json_node.dart';
@@ -150,14 +152,31 @@ class _JsonTreeViewState extends State<JsonTreeView> {
         }
         break;
       case 'Copy Value':
+      case 'Formatted Value':
         String valueText;
-        if (node.type == JsonNodeType.string) {
+        if (node.type == JsonNodeType.object || node.type == JsonNodeType.array) {
+          try {
+            valueText = const JsonEncoder.withIndent('  ').convert(node.value);
+          } catch (e) {
+            valueText = node.value.toString();
+          }
+        } else if (node.type == JsonNodeType.string) {
           valueText = node.value.toString();
         } else {
           valueText = node.value.toString();
         }
         Clipboard.setData(ClipboardData(text: valueText));
         _showCopySnackBar(context, 'Value copied to clipboard');
+        break;
+      case 'Minified Value':
+        String minifiedValue;
+        if (node.type == JsonNodeType.string) {
+          minifiedValue = node.value.toString();
+        } else {
+          minifiedValue = node.value.toString();
+        }
+        Clipboard.setData(ClipboardData(text: minifiedValue));
+        _showCopySnackBar(context, 'Minified value copied to clipboard');
         break;
       case 'Copy Path':
         Clipboard.setData(ClipboardData(text: node.path));
@@ -306,6 +325,13 @@ class _OptimizedJsonRow extends StatelessWidget {
       menuItems: [
         MenuItem(title: 'Copy Key'),
         MenuItem(title: 'Copy Value'),
+        MenuItem(
+          title: 'Copy Value As...',
+          items: [
+            MenuItem(title: 'Formatted Value'),
+            MenuItem(title: 'Minified Value'),
+          ],
+        ),
         MenuItem(title: 'Copy Path'),
         if (isCollapsible) MenuItem(title: node.isExpanded ? 'Collapse' : 'Expand'),
       ],
