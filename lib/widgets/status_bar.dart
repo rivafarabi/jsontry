@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:jsontry/models/json_node.dart';
 import 'package:provider/provider.dart';
 import 'package:universal_platform/universal_platform.dart';
 import 'package:macos_ui/macos_ui.dart';
@@ -87,7 +86,7 @@ class StatusBar extends StatelessWidget {
                 _buildStatusItem(
                   context,
                   Icons.account_tree,
-                  '${_countTotalNodes(provider.nodes)} nodes',
+                  '${provider.totalNodes} nodes',
                   Colors.indigo,
                 ),
               ],
@@ -181,16 +180,5 @@ class StatusBar extends StatelessWidget {
     } else {
       return '${(duration.inMilliseconds / 1000).toStringAsFixed(2)}s';
     }
-  }
-
-  int _countTotalNodes(List<JsonNode> nodes) {
-    int count = 0;
-    for (JsonNode node in nodes) {
-      count++;
-      if (node.children != null) {
-        count += _countTotalNodes(node.children!);
-      }
-    }
-    return count;
   }
 }

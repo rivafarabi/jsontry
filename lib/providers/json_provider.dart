@@ -11,6 +11,7 @@ import 'package:jsontry/utils/search_controller.dart';
 class JsonProvider extends ChangeNotifier {
   List<JsonNode> _nodes = [];
   List<JsonNode> _flattenNodes = [];
+  int _totalNodes = 0;
   String? _lastScrolledPath;
   String _searchQuery = '';
   List<String> _searchResults = []; // Paths of matching nodes
@@ -34,6 +35,7 @@ class JsonProvider extends ChangeNotifier {
 
   // Getters
   List<JsonNode> get nodes => _flattenNodes; // Return flattened nodes for rendering
+  int get totalNodes => _totalNodes;
   ScrollController get scrollController => _scrollController;
   double get estimatedItemHeight => _estimatedItemHeight;
   String get searchQuery => _searchQuery;
@@ -88,7 +90,7 @@ class JsonProvider extends ChangeNotifier {
     try {
       // Clear previous data first to prevent memory accumulation
       clearData();
-      
+
       _isLoading = true;
       _error = null;
       notifyListeners();
@@ -136,7 +138,7 @@ class JsonProvider extends ChangeNotifier {
     try {
       // Clear previous data first to prevent memory accumulation
       clearData();
-      
+
       _isLoading = true;
       _error = null;
       _filePath = 'Clipboard Content';
@@ -201,6 +203,7 @@ class JsonProvider extends ChangeNotifier {
     final jsonData = jsonDecode(content);
     _nodes = _parseJsonToNodes(jsonData);
     _flattenNodes = _getFlattenNodes(_nodes);
+    _totalNodes = _countTotalNodes(_nodes);
   }
 
   Future<void> _loadLargeJsonFile(File file) async {
@@ -212,6 +215,7 @@ class JsonProvider extends ChangeNotifier {
     final jsonData = await compute(jsonDecode, content);
     _nodes = _parseJsonToNodes(jsonData);
     _flattenNodes = _getFlattenNodes(_nodes);
+    _totalNodes = _countTotalNodes(_nodes);
   }
 
   List<JsonNode> _parseJsonToNodes(dynamic json, {String? parentKey, int depth = 0, String path = ''}) {
@@ -294,6 +298,17 @@ class JsonProvider extends ChangeNotifier {
       depth: depth,
       path: path,
     );
+  }
+
+  int _countTotalNodes(List<JsonNode> nodes) {
+    int count = 0;
+    for (JsonNode node in nodes) {
+      count++;
+      if (node.children != null) {
+        count += _countTotalNodes(node.children!);
+      }
+    }
+    return count;
   }
 
   void toggleNode(String path, {bool skipFlatten = false}) {
