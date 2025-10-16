@@ -349,12 +349,13 @@ class JsonViewerScreen extends StatelessWidget {
   Future<void> _openFromClipboard(BuildContext context) async {
     try {
       final clipboardData = await Clipboard.getData('text/plain');
+
+      if (!context.mounted) return;
+
       if (clipboardData?.text != null && clipboardData!.text!.isNotEmpty) {
         await context.read<JsonProvider>().loadJsonFromString(clipboardData.text!);
       } else {
-        if (context.mounted) {
-          _showErrorDialog(context, 'Clipboard is empty or does not contain text.');
-        }
+        _showErrorDialog(context, 'Clipboard is empty or does not contain text.');
       }
     } catch (e) {
       if (context.mounted) {

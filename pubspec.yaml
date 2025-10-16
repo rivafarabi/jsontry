@@ -31,28 +31,17 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # UI and Platform
-  cupertino_icons: ^1.0.6
-  macos_ui: ^2.0.4
-  fluent_ui: ^4.8.6
-  
-  # File handling
-  file_picker: ^6.1.1
-  path: ^1.8.3
-  desktop_drop: ^0.4.4
-  
-  # JSON processing
-  stream_transform: ^2.1.0
-  
-  # Context menu
   context_menus: ^1.0.2
-  
-  # State management
-  provider: ^6.1.1
-  
-  # Platform detection
-  universal_platform: ^1.0.0+1
+  cupertino_icons: ^1.0.6
+  desktop_drop: ^0.4.4
+  file_picker: ^6.1.1
+  fluent_ui: ^4.8.6
+  macos_ui: ^2.0.4
   native_context_menu: ^0.2.2+5
+  path: ^1.8.3
+  provider: ^6.1.1
+  stream_transform: ^2.1.0
+  universal_platform: ^1.0.0+1
 
 dev_dependencies:
   flutter_test:
