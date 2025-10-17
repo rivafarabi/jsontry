@@ -46,6 +46,8 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
   Widget _buildMacOSSearchBar(BuildContext context) {
     return Consumer<JsonProvider>(
       builder: (context, provider, child) {
+        bool isDark = MacosTheme.of(context).brightness == Brightness.dark;
+
         return Container(
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
@@ -86,16 +88,25 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
                 ),
                 const SizedBox(width: 4),
                 MacosIconButton(
-                  icon: const MacosIcon(CupertinoIcons.chevron_up),
+                  icon: MacosIcon(
+                    CupertinoIcons.chevron_up,
+                    color: isDark ? CupertinoColors.systemGrey4 : CupertinoColors.black,
+                  ),
                   onPressed: provider.searchResultsCount > 0 ? () => provider.previousSearchResult(context) : null,
                 ),
                 MacosIconButton(
-                  icon: const MacosIcon(CupertinoIcons.chevron_down),
+                  icon: MacosIcon(
+                    CupertinoIcons.chevron_down,
+                    color: isDark ? CupertinoColors.systemGrey4 : CupertinoColors.black,
+                  ),
                   onPressed: provider.searchResultsCount > 0 ? () => provider.nextSearchResult(context) : null,
                 ),
                 const SizedBox(width: 4),
                 MacosIconButton(
-                  icon: const MacosIcon(CupertinoIcons.clear),
+                  icon: MacosIcon(
+                    CupertinoIcons.clear,
+                    color: isDark ? CupertinoColors.systemGrey4 : CupertinoColors.black,
+                  ),
                   onPressed: () {
                     _searchController.clear();
                     provider.search('');

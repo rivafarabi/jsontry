@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 import 'package:jsontry/models/json_node.dart';
 import 'package:jsontry/utils/path_utils.dart';
 import 'package:jsontry/utils/search_controller.dart';
+import 'package:window_manager/window_manager.dart';
 
 class JsonProvider extends ChangeNotifier {
   List<JsonNode> _nodes = [];
@@ -107,6 +108,8 @@ class JsonProvider extends ChangeNotifier {
         _filePath = result.files.single.path;
         _fileName = result.files.single.name;
         _fileSize = await file.length();
+
+        windowManager.setTitle(windowTitle);
 
         final stopwatch = Stopwatch()..start();
         _loadTime = DateTime.now();
@@ -442,16 +445,26 @@ class JsonProvider extends ChangeNotifier {
   }
 
   void nextSearchResult(BuildContext context) {
-    if (_searchResults.isNotEmpty && _currentSearchIndex < _searchResults.length - 1) {
-      _currentSearchIndex++;
+    if (_searchResults.isNotEmpty) {
+      if (_currentSearchIndex < _searchResults.length - 1) {
+        _currentSearchIndex++;
+      } else {
+        _currentSearchIndex = 0;
+      }
+
       _scrollToCurrentSearchResult(context);
       notifyListeners();
     }
   }
 
   void previousSearchResult(BuildContext context) {
-    if (_searchResults.isNotEmpty && _currentSearchIndex > 0) {
-      _currentSearchIndex--;
+    if (_searchResults.isNotEmpty) {
+      if (_currentSearchIndex > 0) {
+        _currentSearchIndex--;
+      } else {
+        _currentSearchIndex = _searchResults.length - 1;
+      }
+
       _scrollToCurrentSearchResult(context);
       notifyListeners();
     }

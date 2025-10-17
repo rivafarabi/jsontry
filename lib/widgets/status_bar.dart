@@ -26,37 +26,6 @@ class StatusBar extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // File info
-              if (MediaQuery.of(context).size.width > 600 && provider.filePath != null) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.description,
-                        size: 14,
-                        color: Colors.blue.withOpacity(0.8),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _getFileName(provider.filePath!),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.blue.withOpacity(0.8),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-              ],
-
               // File size
               if (provider.fileSize > 0) ...[
                 _buildStatusItem(

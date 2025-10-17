@@ -29,6 +29,23 @@ class JsonViewerScreen extends StatelessWidget {
     return PlatformMenuBar(
       menus: [
         PlatformMenu(
+          label: 'App Menu',
+          menus: [
+            const PlatformMenuItemGroup(
+              members: [
+                PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.about),
+              ],
+            ),
+            const PlatformMenuItemGroup(
+              members: [
+                PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.hide),
+              ],
+            ),
+            if (PlatformProvidedMenuItem.hasMenu(PlatformProvidedMenuItemType.quit))
+              const PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.quit),
+          ],
+        ),
+        PlatformMenu(
           label: 'File',
           menus: [
             PlatformMenuItemGroup(
@@ -71,7 +88,7 @@ class JsonViewerScreen extends StatelessWidget {
   Widget _buildMaterialLayout(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('JsonTry Viewer'),
+        title: const Text('JSONTry'),
         actions: [
           IconButton(
             icon: const Icon(Icons.folder_open),

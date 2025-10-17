@@ -5,13 +5,13 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = JSONtry
+PRODUCT_NAME = JSONTry
 
 // The application's bundle identifier
 PRODUCT_BUNDLE_IDENTIFIER = com.rivafarabi.jsontry
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2025 com.example. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2025 Riva Farabi All rights reserved.
 
 // Deployment target
 MACOSX_DEPLOYMENT_TARGET = 10.15
