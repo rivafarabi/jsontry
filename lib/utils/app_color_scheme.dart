@@ -12,6 +12,7 @@ class AppColorScheme {
   late Color oddRowColor;
   late Color searchMatchColor;
   late Color currentResultColor;
+  late Color expansionButtonColor;
   late bool isDark;
 
   // Cached type colors
@@ -28,23 +29,25 @@ class AppColorScheme {
     if (UniversalPlatform.isMacOS) {
       isDark = MacosTheme.of(context).brightness == Brightness.dark;
       backgroundColor = MacosTheme.of(context).canvasColor;
+      dividerColor = MacosTheme.of(context).dividerColor;
     } else if (UniversalPlatform.isWindows) {
       isDark = fluent.FluentTheme.of(context).brightness == Brightness.dark;
       final fluentTheme = fluent.FluentTheme.maybeOf(context);
       backgroundColor = fluentTheme?.scaffoldBackgroundColor ?? Theme.of(context).scaffoldBackgroundColor;
+      dividerColor = fluentTheme?.resources.dividerStrokeColorDefault ?? Theme.of(context).dividerColor;
     } else {
       isDark = Theme.of(context).brightness == Brightness.dark;
       backgroundColor = Theme.of(context).scaffoldBackgroundColor;
+      dividerColor = Theme.of(context).dividerColor;
     }
 
     keyColor = isDark ? Colors.blue.shade300 : Colors.blue.shade700;
-    dividerColor = Theme.of(context).dividerColor;
-
     evenRowColor = isDark ? Colors.grey.shade800.withOpacity(0.3) : Colors.grey.shade50;
     oddRowColor = isDark ? Colors.grey.shade900.withOpacity(0.2) : Colors.white;
 
     searchMatchColor = isDark ? Colors.blue.shade600.withOpacity(0.3) : Colors.blue.shade200.withOpacity(0.3);
     currentResultColor = isDark ? Colors.blue.shade600.withOpacity(0.8) : Colors.blue.shade200.withOpacity(0.8);
+    expansionButtonColor = isDark ? Colors.white : Colors.grey.shade400;
   }
 
   Color getTypeColor(JsonNodeType type) => _typeColors[type]!;

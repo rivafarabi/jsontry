@@ -27,7 +27,6 @@ class JsonNodeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Cache expensive calculations
     final isEven = index % 2 == 0;
     final isSearchMatch = provider.isSearchMatch(node.path);
     final isCurrentResult = provider.isCurrentSearchResult(node.path);
@@ -52,7 +51,7 @@ class JsonNodeRow extends StatelessWidget {
       child: GestureDetector(
         onTap: isCollapsible ? onTap : null,
         child: Container(
-          height: 25, // Fixed height for better scrolling performance
+          height: 25,
           padding: EdgeInsets.only(
             left: (node.depth * 16.0),
             right: 12.0,
@@ -117,7 +116,7 @@ class JsonNodeRow extends StatelessWidget {
       child: Icon(
         node.isExpanded ? Icons.remove : Icons.add,
         size: 10,
-        color: Colors.grey.shade600,
+        color: colorScheme.expansionButtonColor,
       ),
     );
   }

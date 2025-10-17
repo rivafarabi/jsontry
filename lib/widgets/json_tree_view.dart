@@ -47,15 +47,7 @@ class _JsonTreeViewState extends State<JsonTreeView> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: _colorScheme.backgroundColor,
-        border: Border(
-          top: BorderSide(
-            color: _colorScheme.dividerColor,
-            width: 1,
-          ),
-        ),
-      ),
+      color: _colorScheme.backgroundColor,
       child: Consumer<JsonProvider>(
         builder: (context, provider, child) {
           // Clear state when search is cleared
