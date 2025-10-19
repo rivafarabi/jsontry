@@ -10,6 +10,7 @@ class AppColorScheme {
   late Color dividerColor;
   late Color evenRowColor;
   late Color oddRowColor;
+  late Color selectedColor;
   late Color searchMatchColor;
   late Color currentResultColor;
   late Color expansionButtonColor;
@@ -42,6 +43,7 @@ class AppColorScheme {
     }
 
     keyColor = isDark ? Colors.blue.shade300 : Colors.blue.shade700;
+    selectedColor = isDark ? Colors.blue.shade400 : Colors.blue.shade800;
     evenRowColor = isDark ? Colors.grey.shade800.withOpacity(0.3) : Colors.grey.shade50;
     oddRowColor = isDark ? Colors.grey.shade900.withOpacity(0.2) : Colors.white;
 

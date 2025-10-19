@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
+import 'package:jsontry/widgets/macos_platform_menu.dart';
 import 'package:provider/provider.dart';
 import 'package:universal_platform/universal_platform.dart';
 import 'package:macos_ui/macos_ui.dart';
@@ -26,45 +26,7 @@ class JsonViewerScreen extends StatelessWidget {
   }
 
   Widget _buildMacOSLayout(BuildContext context) {
-    return PlatformMenuBar(
-      menus: [
-        PlatformMenu(
-          label: 'App Menu',
-          menus: [
-            const PlatformMenuItemGroup(
-              members: [
-                PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.about),
-              ],
-            ),
-            const PlatformMenuItemGroup(
-              members: [
-                PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.hide),
-              ],
-            ),
-            if (PlatformProvidedMenuItem.hasMenu(PlatformProvidedMenuItemType.quit))
-              const PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.quit),
-          ],
-        ),
-        PlatformMenu(
-          label: 'File',
-          menus: [
-            PlatformMenuItemGroup(
-              members: [
-                PlatformMenuItem(
-                  label: 'Open...',
-                  shortcut: const SingleActivator(LogicalKeyboardKey.keyO, meta: true),
-                  onSelected: () => _openJsonFile(context),
-                ),
-                PlatformMenuItem(
-                  label: 'Open from Clipboard...',
-                  shortcut: const SingleActivator(LogicalKeyboardKey.keyV, meta: true, shift: true),
-                  onSelected: () => _openFromClipboard(context),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ],
+    return MacosPlatformMenu(
       child: MacosWindow(
         child: MacosScaffold(
           children: [
@@ -357,59 +319,5 @@ class JsonViewerScreen extends StatelessWidget {
     }
 
     return const JsonTreeView();
-  }
-
-  Future<void> _openJsonFile(BuildContext context) async {
-    await context.read<JsonProvider>().loadJsonFile();
-  }
-
-  Future<void> _openFromClipboard(BuildContext context) async {
-    try {
-      final clipboardData = await Clipboard.getData('text/plain');
-
-      if (!context.mounted) return;
-
-      if (clipboardData?.text != null && clipboardData!.text!.isNotEmpty) {
-        await context.read<JsonProvider>().loadJsonFromString(clipboardData.text!);
-      } else {
-        _showErrorDialog(context, 'Clipboard is empty or does not contain text.');
-      }
-    } catch (e) {
-      if (context.mounted) {
-        _showErrorDialog(context, 'Failed to read from clipboard: $e');
-      }
-    }
-  }
-
-  void _showErrorDialog(BuildContext context, String message) {
-    if (UniversalPlatform.isMacOS) {
-      showMacosAlertDialog(
-        context: context,
-        builder: (context) => MacosAlertDialog(
-          appIcon: const MacosIcon(CupertinoIcons.exclamationmark_triangle),
-          title: const Text('Error'),
-          message: Text(message),
-          primaryButton: PushButton(
-            controlSize: ControlSize.large,
-            child: const Text('OK'),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ),
-      );
-    } else {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Error'),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-    }
   }
 }

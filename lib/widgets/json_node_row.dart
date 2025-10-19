@@ -11,8 +11,10 @@ class JsonNodeRow extends StatelessWidget {
   final int index;
   final AppColorScheme colorScheme;
   final StyleCache styleCache;
+  final bool isSelected;
   final VoidCallback? onTap;
-  final Function(BuildContext context, String action, JsonNode node, JsonProvider provider)? onContextMenu;
+  final VoidCallback? onToggleTap;
+  final Function(String action, JsonNode node)? onContextMenu;
 
   const JsonNodeRow({
     super.key,
@@ -21,7 +23,9 @@ class JsonNodeRow extends StatelessWidget {
     required this.index,
     required this.colorScheme,
     required this.styleCache,
+    required this.isSelected,
     this.onTap,
+    this.onToggleTap,
     this.onContextMenu,
   });
 
@@ -30,11 +34,11 @@ class JsonNodeRow extends StatelessWidget {
     final isEven = index % 2 == 0;
     final isSearchMatch = provider.isSearchMatch(node.path);
     final isCurrentResult = provider.isCurrentSearchResult(node.path);
-    final isCollapsible = _isCollapsible();
-    final backgroundColor = _getBackgroundColor(isEven, isSearchMatch, isCurrentResult);
+    final isCollapsible = node.isCollapsible;
+    final backgroundColor = _getBackgroundColor(isEven, isSelected, isSearchMatch, isCurrentResult);
 
     return ContextMenuRegion(
-      onItemSelected: (item) => onContextMenu != null ? onContextMenu!(context, item.title, node, provider) : null,
+      onItemSelected: (item) => onContextMenu != null ? onContextMenu!(item.title, node) : null,
       menuItems: [
         MenuItem(title: 'Copy Key'),
         MenuItem(title: 'Copy Value'),
@@ -49,7 +53,7 @@ class JsonNodeRow extends StatelessWidget {
         if (isCollapsible) MenuItem(title: node.isExpanded ? 'Collapse' : 'Expand'),
       ],
       child: GestureDetector(
-        onTap: isCollapsible ? onTap : null,
+        onTap: onTap,
         child: Container(
           height: 25,
           padding: EdgeInsets.only(
@@ -83,16 +87,8 @@ class JsonNodeRow extends StatelessWidget {
     );
   }
 
-  bool _isCollapsible() {
-    if (node.type == JsonNodeType.object) {
-      return node.value is Map<String, dynamic> && (node.value as Map<String, dynamic>).isNotEmpty;
-    } else if (node.type == JsonNodeType.array) {
-      return node.value is List && (node.value as List).isNotEmpty;
-    }
-    return false;
-  }
-
-  Color _getBackgroundColor(bool isEven, bool isSearchMatch, bool isCurrentResult) {
+  Color _getBackgroundColor(bool isEven, bool isSelected, bool isSearchMatch, bool isCurrentResult) {
+    if (isSelected) return colorScheme.currentResultColor;
     if (isCurrentResult) return colorScheme.currentResultColor;
     if (isSearchMatch) return colorScheme.searchMatchColor;
     return isEven ? colorScheme.evenRowColor : colorScheme.oddRowColor;
@@ -105,18 +101,21 @@ class JsonNodeRow extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Container(
-      width: 14,
-      height: 14,
-      margin: const EdgeInsets.only(right: 8),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade400, width: 1),
-        borderRadius: BorderRadius.circular(2),
-      ),
-      child: Icon(
-        node.isExpanded ? Icons.remove : Icons.add,
-        size: 10,
-        color: colorScheme.expansionButtonColor,
+    return GestureDetector(
+      onTap: onToggleTap,
+      child: Container(
+        width: 14,
+        height: 14,
+        margin: const EdgeInsets.only(right: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade400, width: 1),
+          borderRadius: BorderRadius.circular(2),
+        ),
+        child: Icon(
+          node.isExpanded ? Icons.remove : Icons.add,
+          size: 10,
+          color: colorScheme.expansionButtonColor,
+        ),
       ),
     );
   }

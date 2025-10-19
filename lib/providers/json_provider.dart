@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:jsontry/models/json_node.dart';
 import 'package:jsontry/utils/path_utils.dart';
@@ -26,6 +27,7 @@ class JsonProvider extends ChangeNotifier {
   bool _isSearching = false;
   String? _error;
   Timer? _searchDebounceTimer;
+  JsonNode? _selectedNode;
   final ScrollController _scrollController = ScrollController();
   final SearchController _searchController = SearchController();
   final double _estimatedItemHeight = 25;
@@ -51,6 +53,7 @@ class JsonProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isSearching => _isSearching;
   String? get error => _error;
+  JsonNode? get selectedNode => _selectedNode;
 
   // Performance getters
   int get expandedPathsCount => _expandedPathsCount;
@@ -70,6 +73,48 @@ class JsonProvider extends ChangeNotifier {
       return 'CLIPBOARD - JSONTry';
     }
     return 'JSONTry';
+  }
+
+  void handleContextMenuAction(String action, JsonNode node) {
+    switch (action) {
+      case 'Copy Key':
+        if (node.key != null) {
+          Clipboard.setData(ClipboardData(text: node.key!));
+        }
+        break;
+      case 'Copy Value':
+      case 'Formatted Value':
+        String valueText;
+        if (node.type == JsonNodeType.object || node.type == JsonNodeType.array) {
+          try {
+            valueText = const JsonEncoder.withIndent('  ').convert(node.value);
+          } catch (e) {
+            valueText = node.value.toString();
+          }
+        } else if (node.type == JsonNodeType.string) {
+          valueText = node.value.toString();
+        } else {
+          valueText = node.value.toString();
+        }
+        Clipboard.setData(ClipboardData(text: valueText));
+        break;
+      case 'Minified Value':
+        String minifiedValue;
+        if (node.type == JsonNodeType.string) {
+          minifiedValue = node.value.toString();
+        } else {
+          minifiedValue = node.value.toString();
+        }
+        Clipboard.setData(ClipboardData(text: minifiedValue));
+        break;
+      case 'Copy Path':
+        Clipboard.setData(ClipboardData(text: node.path));
+        break;
+      case 'Expand':
+      case 'Collapse':
+        toggleNode(node.path);
+        break;
+    }
   }
 
   /// Recursively flatten the tree structure based on expansion state
@@ -314,10 +359,37 @@ class JsonProvider extends ChangeNotifier {
     return count;
   }
 
+  void selectNode(JsonNode node) {
+    if (_selectedNode?.path == node.path) return;
+
+    _selectedNode = node;
+    int selectedIndex = _flattenNodes.indexWhere((n) => n.path == node.path);
+    int unselectedIndex = _flattenNodes.indexWhere((n) => n.isSelected);
+    _flattenNodes[selectedIndex] = _flattenNodes[selectedIndex].copyWith(isSelected: true);
+
+    if (unselectedIndex != -1) {
+      _flattenNodes[unselectedIndex] = _flattenNodes[unselectedIndex].copyWith(isSelected: false);
+    }
+
+    notifyListeners();
+  }
+
   void toggleNode(String path, {bool skipFlatten = false}) {
     _nodes = _updateNodeExpansion(_nodes, path);
 
-    if (!skipFlatten) _flattenNodes = _getFlattenNodes(_nodes);
+    if (!skipFlatten) {
+      _flattenNodes = _getFlattenNodes(_nodes);
+
+      if (_selectedNode != null) {
+        int selectedIndex = _flattenNodes.indexWhere((n) => n.path == _selectedNode!.path);
+
+        if (selectedIndex != -1) {
+          _flattenNodes[selectedIndex] = _flattenNodes[selectedIndex].copyWith(isSelected: true);
+        } else {
+          _selectedNode == null;
+        }
+      }
+    }
 
     notifyListeners();
   }
