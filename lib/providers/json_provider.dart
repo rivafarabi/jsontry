@@ -407,6 +407,62 @@ class JsonProvider extends ChangeNotifier {
     }).toList();
   }
 
+  void expandAll() {
+    if (_nodes.isEmpty) return;
+
+    _nodes = _expandAllNodes(_nodes);
+    _flattenNodes = _getFlattenNodes(_nodes);
+
+    if (_selectedNode != null) {
+      int selectedIndex = _flattenNodes.indexWhere((n) => n.path == _selectedNode!.path);
+      if (selectedIndex != -1) {
+        _flattenNodes[selectedIndex] = _flattenNodes[selectedIndex].copyWith(isSelected: true);
+      }
+    }
+
+    notifyListeners();
+  }
+
+  void collapseAll() {
+    if (_nodes.isEmpty) return;
+
+    _nodes = _collapseAllNodes(_nodes);
+    _flattenNodes = _getFlattenNodes(_nodes);
+
+    if (_selectedNode != null) {
+      int selectedIndex = _flattenNodes.indexWhere((n) => n.path == _selectedNode!.path);
+      if (selectedIndex != -1) {
+        _flattenNodes[selectedIndex] = _flattenNodes[selectedIndex].copyWith(isSelected: true);
+      }
+    }
+
+    notifyListeners();
+  }
+
+  List<JsonNode> _expandAllNodes(List<JsonNode> nodes) {
+    return nodes.map((node) {
+      if (node.children != null && node.children!.isNotEmpty) {
+        return node.copyWith(
+          isExpanded: true,
+          children: _expandAllNodes(node.children!),
+        );
+      }
+      return node;
+    }).toList();
+  }
+
+  List<JsonNode> _collapseAllNodes(List<JsonNode> nodes) {
+    return nodes.map((node) {
+      if (node.children != null && node.children!.isNotEmpty) {
+        return node.copyWith(
+          isExpanded: false,
+          children: _collapseAllNodes(node.children!),
+        );
+      }
+      return node;
+    }).toList();
+  }
+
   void search(String query) {
     _searchQuery = query.toLowerCase();
 

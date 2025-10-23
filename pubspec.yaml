@@ -37,6 +37,7 @@ dependencies:
   file_picker: ^6.1.1
   fluent_ui: ^4.8.6
   macos_ui: ^2.0.4
+  menu_bar: ^0.5.3
   native_context_menu: ^0.2.2+5
   path: ^1.8.3
   provider: ^6.1.1

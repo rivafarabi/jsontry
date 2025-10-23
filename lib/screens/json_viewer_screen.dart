@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:jsontry/widgets/macos_platform_menu.dart';
+import 'package:jsontry/widgets/windows_platform_menu.dart';
 import 'package:provider/provider.dart';
 import 'package:universal_platform/universal_platform.dart';
 import 'package:macos_ui/macos_ui.dart';
@@ -42,8 +43,10 @@ class JsonViewerScreen extends StatelessWidget {
   }
 
   Widget _buildWindowsLayout(BuildContext context) {
-    return fluent.NavigationView(
-      content: _buildMainContent(context),
+    return WindowsPlatformMenu(
+      child: fluent.NavigationView(
+        content: _buildMainContent(context),
+      ),
     );
   }
 

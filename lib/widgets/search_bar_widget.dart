@@ -126,9 +126,9 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
         return Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: fluent.FluentTheme.of(context).scaffoldBackgroundColor,
-            border: Border(
-              bottom: BorderSide(
+            color: fluent.FluentTheme.of(context).menuColor,
+            border: Border.symmetric(
+              horizontal: BorderSide(
                 color: fluent.FluentTheme.of(context).resources.dividerStrokeColorDefault,
                 width: 1,
               ),
