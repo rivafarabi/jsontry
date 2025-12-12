@@ -2,6 +2,8 @@
 
 JSONTry (pronounced "jay-son-tree") is an experimental JSON viewer application built with Flutter for macOS and Windows. Its primary goal is to benchmark Flutter's performance when handling large JSON data files, making it a valuable tool for developers interested in high-performance desktop applications. JSONTry serves as an alternative to Dadroit JSON Viewer, with some parts of the code "vibe coded" for rapid prototyping and creative solutions.
 
+<img width="2223" height="1482" alt="image" src="https://github.com/user-attachments/assets/27c2258b-8c5a-470b-818f-3a96ae819d3f" />
+
 ## Features
 
 ### 🚀 Performance
