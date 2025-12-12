@@ -4,7 +4,9 @@ import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:jsontry/models/json_node.dart';
 import 'package:jsontry/providers/json_provider.dart';
 import 'package:menu_bar/menu_bar.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class WindowsPlatformMenu extends StatefulWidget {
   final Widget child;
@@ -16,6 +18,11 @@ class WindowsPlatformMenu extends StatefulWidget {
 }
 
 class _WindowsPlatformMenuState extends State<WindowsPlatformMenu> {
+  Future<String?> _getAppVersion() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    return packageInfo.version;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Selector<JsonProvider, bool>(
@@ -189,24 +196,40 @@ class _WindowsPlatformMenuState extends State<WindowsPlatformMenu> {
       context: context,
       builder: (context) => fluent.ContentDialog(
         title: const Text('About JSONTry'),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('JSONTry v1.0.0'),
-            SizedBox(height: 8),
-            Text('A powerful JSON viewer and editor for Windows.'),
-            SizedBox(height: 8),
-            Text('Features:'),
-            Text('• View and navigate large JSON files'),
-            Text('• Search through JSON data'),
-            Text('• Copy keys, values, and paths'),
-            Text('• Optimized performance for large files'),
-            SizedBox(height: 16),
-            Text('© 2024 JSONTry. All rights reserved.'),
+            FutureBuilder<String?>(
+                future: _getAppVersion(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Text('Loading version...');
+                  } else if (snapshot.hasError) {
+                    return const Text('Version: Error loading version');
+                  } else {
+                    return Text('JSONTry v${snapshot.data}');
+                  }
+                }),
+            const SizedBox(height: 8),
+            const Text('An open source JSON viewer.'),
+            const SizedBox(height: 8),
+            const Text('Features:'),
+            const Text('• View and navigate large JSON files'),
+            const Text('• Search through JSON data'),
+            const Text('• Copy keys, values, and paths'),
+            const Text('• Optimized performance for large files'),
+            const SizedBox(height: 16),
+            const Text('Made with ☕ by Riva Farabi.'),
+            const Text('© 2025 Bigvaria. All rights reserved.'),
           ],
         ),
         actions: [
+          fluent.Button(
+              child: const Text('GitHub'),
+              onPressed: () {
+                launchUrl(Uri.parse('https://github.com/rivafarabi/jsontry'));
+              }),
           fluent.Button(
             child: const Text('OK'),
             onPressed: () => Navigator.of(context).pop(),
