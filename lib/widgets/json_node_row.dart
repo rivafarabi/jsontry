@@ -5,7 +5,7 @@ import 'package:jsontry/utils/app_color_scheme.dart';
 import 'package:jsontry/utils/style_cache.dart';
 import 'package:native_context_menu/native_context_menu.dart';
 
-class JsonNodeRow extends StatelessWidget {
+class JsonNodeRow extends StatefulWidget {
   final JsonNode node;
   final JsonProvider provider;
   final int index;
@@ -30,15 +30,23 @@ class JsonNodeRow extends StatelessWidget {
   });
 
   @override
+  State<JsonNodeRow> createState() => _JsonNodeRowState();
+}
+
+class _JsonNodeRowState extends State<JsonNodeRow> {
+  DateTime? _lastTap;
+  static const doubleTapDelay = Duration(milliseconds: 250);
+
+  @override
   Widget build(BuildContext context) {
-    final isEven = index % 2 == 0;
-    final isSearchMatch = provider.isSearchMatch(node.path);
-    final isCurrentResult = provider.isCurrentSearchResult(node.path);
-    final isCollapsible = node.isCollapsible;
-    final backgroundColor = _getBackgroundColor(isEven, isSelected, isSearchMatch, isCurrentResult);
+    final isEven = widget.index % 2 == 0;
+    final isSearchMatch = widget.provider.isSearchMatch(widget.node.path);
+    final isCurrentResult = widget.provider.isCurrentSearchResult(widget.node.path);
+    final isCollapsible = widget.node.isCollapsible;
+    final backgroundColor = _getBackgroundColor(isEven, widget.isSelected, isSearchMatch, isCurrentResult);
 
     return ContextMenuRegion(
-      onItemSelected: (item) => onContextMenu != null ? onContextMenu!(item.title, node) : null,
+      onItemSelected: (item) => widget.onContextMenu != null ? widget.onContextMenu!(item.title, widget.node) : null,
       menuItems: [
         MenuItem(title: 'Copy Key'),
         MenuItem(title: 'Copy Value'),
@@ -50,14 +58,14 @@ class JsonNodeRow extends StatelessWidget {
           ],
         ),
         MenuItem(title: 'Copy Path'),
-        if (isCollapsible) MenuItem(title: node.isExpanded ? 'Collapse' : 'Expand'),
+        if (isCollapsible) MenuItem(title: widget.node.isExpanded ? 'Collapse' : 'Expand'),
       ],
-      child: GestureDetector(
-        onTap: onTap,
+      child: Listener(
+        onPointerDown: _handlePointerDown,
         child: Container(
           height: 25,
           padding: EdgeInsets.only(
-            left: (node.depth * 16.0),
+            left: (widget.node.depth * 16.0),
             right: 12.0,
             top: 3.0,
             bottom: 3.0,
@@ -65,16 +73,16 @@ class JsonNodeRow extends StatelessWidget {
           decoration: BoxDecoration(color: backgroundColor),
           child: Row(
             children: [
-              SizedBox(width: (isCollapsible ? 8.0 : 30) + (node.depth * 8.0)),
+              SizedBox(width: (isCollapsible ? 8.0 : 30) + (widget.node.depth * 8.0)),
               _buildExpansionIcon(isCollapsible),
-              if (node.key != null) ...[
+              if (widget.node.key != null) ...[
                 Text(
-                  '${node.key}',
-                  style: styleCache.keyStyle.copyWith(color: colorScheme.keyColor),
+                  '${widget.node.key}',
+                  style: widget.styleCache.keyStyle.copyWith(color: widget.colorScheme.keyColor),
                 ),
                 Text(
                   ' : ',
-                  style: styleCache.colonStyle.copyWith(color: colorScheme.keyColor),
+                  style: widget.styleCache.colonStyle.copyWith(color: widget.colorScheme.keyColor),
                 ),
               ],
               Expanded(child: _buildValueWidget()),
@@ -87,22 +95,34 @@ class JsonNodeRow extends StatelessWidget {
     );
   }
 
+  void _handlePointerDown(PointerDownEvent event) {
+    final now = DateTime.now();
+
+    if (_lastTap != null && now.difference(_lastTap!) < doubleTapDelay) {
+      _lastTap = null;
+      widget.onToggleTap!();
+    } else {
+      _lastTap = now;
+      widget.onTap!();
+    }
+  }
+
   Color _getBackgroundColor(bool isEven, bool isSelected, bool isSearchMatch, bool isCurrentResult) {
-    if (isSelected) return colorScheme.currentResultColor;
-    if (isCurrentResult) return colorScheme.currentResultColor;
-    if (isSearchMatch) return colorScheme.searchMatchColor;
-    return isEven ? colorScheme.evenRowColor : colorScheme.oddRowColor;
+    if (isSelected) return widget.colorScheme.currentResultColor;
+    if (isCurrentResult) return widget.colorScheme.currentResultColor;
+    if (isSearchMatch) return widget.colorScheme.searchMatchColor;
+    return isEven ? widget.colorScheme.evenRowColor : widget.colorScheme.oddRowColor;
   }
 
   Widget _buildExpansionIcon(bool isCollapsible) {
     if (!isCollapsible) return const SizedBox.shrink();
 
-    if (node.children == null || node.children!.isEmpty) {
+    if (widget.node.children == null || widget.node.children!.isEmpty) {
       return const SizedBox.shrink();
     }
 
     return GestureDetector(
-      onTap: onToggleTap,
+      onTap: widget.onToggleTap,
       child: Container(
         width: 14,
         height: 14,
@@ -112,44 +132,44 @@ class JsonNodeRow extends StatelessWidget {
           borderRadius: BorderRadius.circular(2),
         ),
         child: Icon(
-          node.isExpanded ? Icons.remove : Icons.add,
+          widget.node.isExpanded ? Icons.remove : Icons.add,
           size: 10,
-          color: colorScheme.expansionButtonColor,
+          color: widget.colorScheme.expansionButtonColor,
         ),
       ),
     );
   }
 
   Widget _buildValueWidget() {
-    final style = styleCache.baseStyle.copyWith(
-      color: colorScheme.getValueColor(node.type),
+    final style = widget.styleCache.baseStyle.copyWith(
+      color: widget.colorScheme.getValueColor(widget.node.type),
     );
 
-    switch (node.type) {
+    switch (widget.node.type) {
       case JsonNodeType.object:
-        final objectMap = node.value as Map<String, dynamic>;
+        final objectMap = widget.node.value as Map<String, dynamic>;
         return Text(
-          node.isExpanded ? '{' : '{ ${objectMap.length} ${objectMap.length == 1 ? 'item' : 'items'} }',
+          widget.node.isExpanded ? '{' : '{ ${objectMap.length} ${objectMap.length == 1 ? 'item' : 'items'} }',
           style: style.copyWith(fontWeight: FontWeight.w500),
         );
 
       case JsonNodeType.array:
-        final arrayList = node.value as List;
+        final arrayList = widget.node.value as List;
         return Text(
-          node.isExpanded ? '[' : '[ ${arrayList.length} ${arrayList.length == 1 ? 'item' : 'items'} ]',
+          widget.node.isExpanded ? '[' : '[ ${arrayList.length} ${arrayList.length == 1 ? 'item' : 'items'} ]',
           style: style.copyWith(fontWeight: FontWeight.w500),
         );
 
       case JsonNodeType.string:
         return Text(
-          '"${node.value}"',
+          '"${widget.node.value}"',
           style: style,
           overflow: TextOverflow.ellipsis,
         );
 
       case JsonNodeType.number:
         return Text(
-          node.value.toString(),
+          widget.node.value.toString(),
           style: style.copyWith(fontWeight: FontWeight.w500),
         );
 
@@ -157,7 +177,7 @@ class JsonNodeRow extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           child: Text(
-            node.value.toString(),
+            widget.node.value.toString(),
             style: style.copyWith(fontWeight: FontWeight.w600),
           ),
         );
@@ -177,7 +197,7 @@ class JsonNodeRow extends StatelessWidget {
   }
 
   Widget _buildTypeIndicator() {
-    final typeColor = colorScheme.getTypeColor(node.type);
+    final typeColor = widget.colorScheme.getTypeColor(widget.node.type);
     final typeLabel = _getTypeLabel();
 
     return Container(
@@ -202,17 +222,17 @@ class JsonNodeRow extends StatelessWidget {
   }
 
   String _getTypeLabel() {
-    switch (node.type) {
+    switch (widget.node.type) {
       case JsonNodeType.object:
-        final objectMap = node.value as Map<String, dynamic>;
+        final objectMap = widget.node.value as Map<String, dynamic>;
         return 'Object (${objectMap.length})';
       case JsonNodeType.array:
-        final arrayList = node.value as List;
+        final arrayList = widget.node.value as List;
         return 'Array (${arrayList.length})';
       case JsonNodeType.string:
         return 'String';
       case JsonNodeType.number:
-        return node.value is int ? 'Integer' : 'Number';
+        return widget.node.value is int ? 'Integer' : 'Number';
       case JsonNodeType.boolean:
         return 'Boolean';
       case JsonNodeType.nullValue:
