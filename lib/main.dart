@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jsontry/providers/app_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:universal_platform/universal_platform.dart';
 import 'package:macos_ui/macos_ui.dart';
@@ -11,12 +12,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await windowManager.ensureInitialized();
 
-  WindowOptions windowOptions = const WindowOptions(
-    size: Size(500, 650),
-    minimumSize: Size(400, 650),
-    skipTaskbar: false,
-    title: "JSONTry"
-  );
+  WindowOptions windowOptions = const WindowOptions(size: Size(500, 650), minimumSize: Size(400, 650), skipTaskbar: false, title: "JSONTry");
   windowManager.waitUntilReadyToShow(windowOptions, () async {
     await windowManager.show();
     await windowManager.focus();
@@ -30,16 +26,24 @@ class JsonTryApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => JsonProvider(),
-      child: Consumer<JsonProvider>(
-        builder: (context, jsonProvider, child) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (context) => AppProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => JsonProvider(),
+        ),
+      ],
+      child: Consumer2<AppProvider, JsonProvider>(
+        builder: (context, appProvider, jsonProvider, child) {
           if (UniversalPlatform.isMacOS) {
             return MacosApp(
               title: jsonProvider.windowTitle,
               theme: MacosThemeData.light(),
               darkTheme: MacosThemeData.dark(),
               home: const JsonViewerScreen(),
+              themeMode: appProvider.themeMode,
               debugShowCheckedModeBanner: false,
             );
           } else if (UniversalPlatform.isWindows) {
@@ -48,6 +52,7 @@ class JsonTryApp extends StatelessWidget {
               theme: fluent.FluentThemeData.light(),
               darkTheme: fluent.FluentThemeData.dark(),
               home: const JsonViewerScreen(),
+              themeMode: appProvider.themeMode,
               debugShowCheckedModeBanner: false,
             );
           } else {
@@ -58,6 +63,7 @@ class JsonTryApp extends StatelessWidget {
                 useMaterial3: true,
               ),
               home: const JsonViewerScreen(),
+              themeMode: appProvider.themeMode,
               debugShowCheckedModeBanner: false,
             );
           }

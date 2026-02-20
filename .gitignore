@@ -45,4 +45,5 @@ app.*.map.json
 # FVM Version Cache
 .fvm/
 
-.dist/
+# Build related
+*.exe

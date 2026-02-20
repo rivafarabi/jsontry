@@ -250,7 +250,6 @@ class JsonViewerScreen extends StatelessWidget {
               const SizedBox(height: 8),
               const Text(
                 'Click the folder icon to open a JSON file',
-                style: TextStyle(color: MacosColors.systemGrayColor),
               ),
               const SizedBox(height: 24),
               PushButton(
@@ -279,7 +278,6 @@ class JsonViewerScreen extends StatelessWidget {
               const SizedBox(height: 8),
               const Text(
                 'Click the folder icon to open a JSON file',
-                style: TextStyle(color: fluent.Colors.grey),
               ),
               const SizedBox(height: 24),
               fluent.Button(
@@ -305,9 +303,8 @@ class JsonViewerScreen extends StatelessWidget {
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: 8),
-              Text(
+              const Text(
                 'Click the folder icon to open a JSON file',
-                style: TextStyle(color: Colors.grey.shade600),
               ),
               const SizedBox(height: 24),
               ElevatedButton.icon(

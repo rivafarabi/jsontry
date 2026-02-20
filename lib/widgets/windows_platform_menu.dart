@@ -1,11 +1,14 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' hide MenuBar;
 import 'package:flutter/services.dart';
 import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:jsontry/models/json_node.dart';
+import 'package:jsontry/providers/app_provider.dart';
 import 'package:jsontry/providers/json_provider.dart';
 import 'package:menu_bar/menu_bar.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
+import 'package:universal_platform/universal_platform.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class WindowsPlatformMenu extends StatefulWidget {
@@ -25,118 +28,148 @@ class _WindowsPlatformMenuState extends State<WindowsPlatformMenu> {
 
   @override
   Widget build(BuildContext context) {
-    return Selector<JsonProvider, bool>(
-      selector: (_, provider) => provider.selectedNode != null,
-      builder: (_, nodeSelected, ___) => Container(
-        color: fluent.FluentTheme.of(context).menuColor,
-        child: MenuBarWidget(
-          barStyle: const MenuStyle(
-            backgroundColor: WidgetStatePropertyAll<Color>(Colors.transparent),
-            shadowColor: WidgetStatePropertyAll<Color>(Colors.transparent),
-            surfaceTintColor: WidgetStatePropertyAll<Color>(Colors.transparent),
+    return Selector2<AppProvider, JsonProvider, List<dynamic>>(
+      selector: (_, appProvider, jsonProvider) => [appProvider.themeMode, jsonProvider.selectedNode != null],
+      builder: (_, selector, ___) {
+        final [themeMode as ThemeMode, nodeSelected as bool] = selector;
+
+        return Container(
+          color: fluent.FluentTheme.of(context).menuColor,
+          child: MenuBarWidget(
+            barStyle: const MenuStyle(
+              backgroundColor: WidgetStatePropertyAll<Color>(Colors.transparent),
+              shadowColor: WidgetStatePropertyAll<Color>(Colors.transparent),
+              surfaceTintColor: WidgetStatePropertyAll<Color>(Colors.transparent),
+            ),
+            barButtonStyle: ButtonStyle(
+              alignment: Alignment.center,
+              visualDensity: VisualDensity.compact,
+              minimumSize: const WidgetStatePropertyAll<Size>(Size(0, 32)),
+              textStyle: WidgetStatePropertyAll<TextStyle>(fluent.FluentTheme.of(context).typography.caption!),
+            ),
+            menuButtonStyle: ButtonStyle(
+              backgroundColor: WidgetStatePropertyAll<Color>(fluent.FluentTheme.of(context).micaBackgroundColor),
+              minimumSize: const WidgetStatePropertyAll<Size>(Size(250, 42)),
+              visualDensity: VisualDensity.compact,
+              textStyle: WidgetStatePropertyAll<TextStyle>(fluent.FluentTheme.of(context).typography.caption!),
+            ),
+            barButtons: [
+              BarButton(
+                text: const Text('File'),
+                submenu: SubMenu(
+                  menuItems: [
+                    MenuButton(
+                      text: const Text('Open...'),
+                      shortcutText: 'Ctrl+O',
+                      onTap: context.read<JsonProvider>().loadJsonFile,
+                    ),
+                    MenuButton(
+                      text: const Text('Open from Clipboard...'),
+                      shortcutText: 'Ctrl+Shift+V',
+                      onTap: () => _openFromClipboard(context),
+                    ),
+                    MenuDivider(
+                      height: 0,
+                      color: fluent.FluentTheme.of(context).resources.dividerStrokeColorDefault,
+                    ),
+                    MenuButton(
+                      text: const Text('Exit'),
+                      shortcutText: 'Alt+F4',
+                      onTap: () => _exitApp(context),
+                    ),
+                  ],
+                ),
+              ),
+              BarButton(
+                text: const Text('Edit'),
+                submenu: SubMenu(
+                  menuItems: [
+                    MenuButton(
+                      text: const Text('Copy Selected Key'),
+                      shortcutText: 'Ctrl+K',
+                      onTap: nodeSelected ? () => _handleEditContextMenu("Copy Key") : null,
+                    ),
+                    MenuButton(
+                      text: const Text('Copy Selected Value'),
+                      shortcutText: 'Ctrl+C',
+                      onTap: nodeSelected ? () => _handleEditContextMenu("Copy Value") : null,
+                    ),
+                    MenuButton(
+                      text: const Text('Copy Selected Path'),
+                      shortcutText: 'Ctrl+P',
+                      onTap: nodeSelected ? () => _handleEditContextMenu("Copy Path") : null,
+                    ),
+                  ],
+                ),
+              ),
+              BarButton(
+                text: const Text('View'),
+                submenu: SubMenu(
+                  menuItems: [
+                    MenuButton(
+                      text: const Text('Expand All'),
+                      shortcutText: 'Ctrl+E',
+                      onTap: () => _handleViewAction("Expand All"),
+                    ),
+                    MenuButton(
+                      text: const Text('Collapse All'),
+                      shortcutText: 'Ctrl+R',
+                      onTap: () => _handleViewAction("Collapse All"),
+                    ),
+                    MenuDivider(
+                      height: 0,
+                      color: fluent.FluentTheme.of(context).resources.dividerStrokeColorDefault,
+                    ),
+                    MenuButton(
+                      text: const Text('Theme'),
+                      submenu: SubMenu(
+                        menuItems: [
+                          MenuButton(
+                            text: const Text('Light'),
+                            icon: themeMode == ThemeMode.light ? _buildCheckmark() : Container(width: 16),
+                            onTap: () => _handleToggleTheme(ThemeMode.light),
+                          ),
+                          MenuButton(
+                            text: const Text('Dark'),
+                            icon: themeMode == ThemeMode.dark ? _buildCheckmark() : Container(width: 16),
+                            onTap: () => _handleToggleTheme(ThemeMode.dark),
+                          ),
+                          MenuButton(
+                            text: const Text('System'),
+                            icon: themeMode == ThemeMode.system ? _buildCheckmark() : Container(width: 16),
+                            onTap: () => _handleToggleTheme(ThemeMode.system),
+                          ),
+                        ],
+                      ),
+                    ),
+                    MenuDivider(
+                      height: 0,
+                      color: fluent.FluentTheme.of(context).resources.dividerStrokeColorDefault,
+                    ),
+                    MenuButton(
+                      text: const Text('Find...'),
+                      shortcutText: 'Ctrl+F',
+                      onTap: () => _handleViewAction("Find"),
+                    ),
+                  ],
+                ),
+              ),
+              BarButton(
+                text: const Text('Help'),
+                submenu: SubMenu(
+                  menuItems: [
+                    MenuButton(
+                      text: const Text('About JSONTry'),
+                      onTap: () => _showAboutDialog(context),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            child: widget.child,
           ),
-          barButtonStyle: ButtonStyle(
-            alignment: Alignment.center,
-            visualDensity: VisualDensity.compact,
-            minimumSize: const WidgetStatePropertyAll<Size>(Size(0, 32)),
-            textStyle: WidgetStatePropertyAll<TextStyle>(fluent.FluentTheme.of(context).typography.caption!),
-          ),
-          menuButtonStyle: ButtonStyle(
-            backgroundColor: WidgetStatePropertyAll<Color>(fluent.FluentTheme.of(context).micaBackgroundColor),
-            minimumSize: const WidgetStatePropertyAll<Size>(Size(250, 42)),
-            visualDensity: VisualDensity.compact,
-            textStyle: WidgetStatePropertyAll<TextStyle>(fluent.FluentTheme.of(context).typography.caption!),
-          ),
-          barButtons: [
-            BarButton(
-              text: const Text('File'),
-              submenu: SubMenu(
-                menuItems: [
-                  MenuButton(
-                    text: const Text('Open...'),
-                    shortcutText: 'Ctrl+O',
-                    onTap: context.read<JsonProvider>().loadJsonFile,
-                  ),
-                  MenuButton(
-                    text: const Text('Open from Clipboard...'),
-                    shortcutText: 'Ctrl+Shift+V',
-                    onTap: () => _openFromClipboard(context),
-                  ),
-                  MenuDivider(
-                    height: 0,
-                    color: fluent.FluentTheme.of(context).resources.dividerStrokeColorDefault,
-                  ),
-                  MenuButton(
-                    text: const Text('Exit'),
-                    shortcutText: 'Alt+F4',
-                    onTap: () => _exitApp(context),
-                  ),
-                ],
-              ),
-            ),
-            BarButton(
-              text: const Text('Edit'),
-              submenu: SubMenu(
-                menuItems: [
-                  MenuButton(
-                    text: const Text('Copy Selected Key'),
-                    shortcutText: 'Ctrl+K',
-                    onTap: nodeSelected ? () => _handleEditContextMenu("Copy Key") : null,
-                  ),
-                  MenuButton(
-                    text: const Text('Copy Selected Value'),
-                    shortcutText: 'Ctrl+C',
-                    onTap: nodeSelected ? () => _handleEditContextMenu("Copy Value") : null,
-                  ),
-                  MenuButton(
-                    text: const Text('Copy Selected Path'),
-                    shortcutText: 'Ctrl+P',
-                    onTap: nodeSelected ? () => _handleEditContextMenu("Copy Path") : null,
-                  ),
-                ],
-              ),
-            ),
-            BarButton(
-              text: const Text('View'),
-              submenu: SubMenu(
-                menuItems: [
-                  MenuButton(
-                    text: const Text('Expand All'),
-                    shortcutText: 'Ctrl+E',
-                    onTap: () => _handleViewAction("Expand All"),
-                  ),
-                  MenuButton(
-                    text: const Text('Collapse All'),
-                    shortcutText: 'Ctrl+R',
-                    onTap: () => _handleViewAction("Collapse All"),
-                  ),
-                  MenuDivider(
-                    height: 0,
-                    color: fluent.FluentTheme.of(context).resources.dividerStrokeColorDefault,
-                  ),
-                  MenuButton(
-                    text: const Text('Find...'),
-                    shortcutText: 'Ctrl+F',
-                    onTap: () => _handleViewAction("Find"),
-                  ),
-                ],
-              ),
-            ),
-            BarButton(
-              text: const Text('Help'),
-              submenu: SubMenu(
-                menuItems: [
-                  MenuButton(
-                    text: const Text('About JSONTry'),
-                    onTap: () => _showAboutDialog(context),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          child: widget.child,
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -171,6 +204,10 @@ class _WindowsPlatformMenuState extends State<WindowsPlatformMenu> {
         _showInfoDialog(context, 'Use Ctrl+F to search within the JSON data');
         break;
     }
+  }
+
+  void _handleToggleTheme(ThemeMode mode) {
+    context.read<AppProvider>().handleToggleThemeMode(mode);
   }
 
   Future<void> _openFromClipboard(BuildContext context) async {
@@ -267,6 +304,22 @@ class _WindowsPlatformMenuState extends State<WindowsPlatformMenu> {
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCheckmark() {
+    final checkmarkIcon = UniversalPlatform.isMacOS
+        ? CupertinoIcons.check_mark
+        : UniversalPlatform.isWindows
+            ? fluent.FluentIcons.check_mark
+            : Icons.check;
+
+    return SizedBox(
+      width: 16,
+      child: Icon(
+        checkmarkIcon,
+        size: 16,
       ),
     );
   }
