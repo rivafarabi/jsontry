@@ -1,14 +1,12 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' hide MenuBar;
 import 'package:flutter/services.dart';
-import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:jsontry/models/json_node.dart';
 import 'package:jsontry/providers/app_provider.dart';
 import 'package:jsontry/providers/json_provider.dart';
+import 'package:jsontry/utils/app_theme.dart';
 import 'package:menu_bar/menu_bar.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
-import 'package:universal_platform/universal_platform.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class WindowsPlatformMenu extends StatefulWidget {
@@ -28,13 +26,21 @@ class _WindowsPlatformMenuState extends State<WindowsPlatformMenu> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
+    final textColor = AppTheme.textPrimary(isDark);
+    final dividerColor = AppTheme.border(isDark);
+    final accentColor = AppTheme.accent(isDark);
+
     return Selector2<AppProvider, JsonProvider, List<dynamic>>(
       selector: (_, appProvider, jsonProvider) => [appProvider.themeMode, jsonProvider.selectedNode != null],
       builder: (_, selector, ___) {
         final [themeMode as ThemeMode, nodeSelected as bool] = selector;
 
         return Container(
-          color: fluent.FluentTheme.of(context).menuColor,
+          decoration: BoxDecoration(
+            color: AppTheme.surface(isDark),
+            border: Border(bottom: BorderSide(color: dividerColor)),
+          ),
           child: MenuBarWidget(
             barStyle: const MenuStyle(
               backgroundColor: WidgetStatePropertyAll<Color>(Colors.transparent),
@@ -44,14 +50,17 @@ class _WindowsPlatformMenuState extends State<WindowsPlatformMenu> {
             barButtonStyle: ButtonStyle(
               alignment: Alignment.center,
               visualDensity: VisualDensity.compact,
-              minimumSize: const WidgetStatePropertyAll<Size>(Size(0, 32)),
-              textStyle: WidgetStatePropertyAll<TextStyle>(fluent.FluentTheme.of(context).typography.caption!),
+              minimumSize: const WidgetStatePropertyAll<Size>(Size(0, 34)),
+              foregroundColor: WidgetStatePropertyAll<Color>(textColor),
+              overlayColor: WidgetStatePropertyAll<Color>(AppTheme.surfaceVariant(isDark)),
+              textStyle: const WidgetStatePropertyAll<TextStyle>(TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500)),
             ),
             menuButtonStyle: ButtonStyle(
-              backgroundColor: WidgetStatePropertyAll<Color>(fluent.FluentTheme.of(context).micaBackgroundColor),
-              minimumSize: const WidgetStatePropertyAll<Size>(Size(250, 42)),
+              backgroundColor: WidgetStatePropertyAll<Color>(AppTheme.surface(isDark)),
+              foregroundColor: WidgetStatePropertyAll<Color>(textColor),
+              minimumSize: const WidgetStatePropertyAll<Size>(Size(240, 38)),
               visualDensity: VisualDensity.compact,
-              textStyle: WidgetStatePropertyAll<TextStyle>(fluent.FluentTheme.of(context).typography.caption!),
+              textStyle: const WidgetStatePropertyAll<TextStyle>(TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500)),
             ),
             barButtons: [
               BarButton(
@@ -70,7 +79,7 @@ class _WindowsPlatformMenuState extends State<WindowsPlatformMenu> {
                     ),
                     MenuDivider(
                       height: 0,
-                      color: fluent.FluentTheme.of(context).resources.dividerStrokeColorDefault,
+                      color: dividerColor,
                     ),
                     MenuButton(
                       text: const Text('Exit'),
@@ -109,16 +118,16 @@ class _WindowsPlatformMenuState extends State<WindowsPlatformMenu> {
                     MenuButton(
                       text: const Text('Expand All'),
                       shortcutText: 'Ctrl+E',
-                      onTap: () => _handleViewAction("Expand All"),
+                      onTap: () => _handleViewAction(context, "Expand All"),
                     ),
                     MenuButton(
                       text: const Text('Collapse All'),
                       shortcutText: 'Ctrl+R',
-                      onTap: () => _handleViewAction("Collapse All"),
+                      onTap: () => _handleViewAction(context, "Collapse All"),
                     ),
                     MenuDivider(
                       height: 0,
-                      color: fluent.FluentTheme.of(context).resources.dividerStrokeColorDefault,
+                      color: dividerColor,
                     ),
                     MenuButton(
                       text: const Text('Theme'),
@@ -126,30 +135,30 @@ class _WindowsPlatformMenuState extends State<WindowsPlatformMenu> {
                         menuItems: [
                           MenuButton(
                             text: const Text('Light'),
-                            icon: themeMode == ThemeMode.light ? _buildCheckmark() : Container(width: 16),
-                            onTap: () => _handleToggleTheme(ThemeMode.light),
+                            icon: themeMode == ThemeMode.light ? _buildCheckmark(accentColor) : const SizedBox(width: 16),
+                            onTap: () => _handleToggleTheme(context, ThemeMode.light),
                           ),
                           MenuButton(
                             text: const Text('Dark'),
-                            icon: themeMode == ThemeMode.dark ? _buildCheckmark() : Container(width: 16),
-                            onTap: () => _handleToggleTheme(ThemeMode.dark),
+                            icon: themeMode == ThemeMode.dark ? _buildCheckmark(accentColor) : const SizedBox(width: 16),
+                            onTap: () => _handleToggleTheme(context, ThemeMode.dark),
                           ),
                           MenuButton(
                             text: const Text('System'),
-                            icon: themeMode == ThemeMode.system ? _buildCheckmark() : Container(width: 16),
-                            onTap: () => _handleToggleTheme(ThemeMode.system),
+                            icon: themeMode == ThemeMode.system ? _buildCheckmark(accentColor) : const SizedBox(width: 16),
+                            onTap: () => _handleToggleTheme(context, ThemeMode.system),
                           ),
                         ],
                       ),
                     ),
                     MenuDivider(
                       height: 0,
-                      color: fluent.FluentTheme.of(context).resources.dividerStrokeColorDefault,
+                      color: dividerColor,
                     ),
                     MenuButton(
                       text: const Text('Find...'),
                       shortcutText: 'Ctrl+F',
-                      onTap: () => _handleViewAction("Find"),
+                      onTap: () => _handleViewAction(context, "Find"),
                     ),
                   ],
                 ),
@@ -160,7 +169,7 @@ class _WindowsPlatformMenuState extends State<WindowsPlatformMenu> {
                   menuItems: [
                     MenuButton(
                       text: const Text('About JSONTry'),
-                      onTap: () => _showAboutDialog(context),
+                      onTap: () => _showAboutDialog(context, isDark, textColor),
                     ),
                   ],
                 ),
@@ -188,8 +197,9 @@ class _WindowsPlatformMenuState extends State<WindowsPlatformMenu> {
     context.read<JsonProvider>().handleContextMenuAction(action, node);
   }
 
-  void _handleViewAction(String action) {
+  void _handleViewAction(BuildContext context, String action) {
     final provider = context.read<JsonProvider>();
+    final isDark = AppTheme.isDark(context);
 
     switch (action) {
       case "Expand All":
@@ -201,16 +211,18 @@ class _WindowsPlatformMenuState extends State<WindowsPlatformMenu> {
       case "Find":
         // Focus on search bar - this would need to be implemented
         // For now, we can just show a message
-        _showInfoDialog(context, 'Use Ctrl+F to search within the JSON data');
+        _showInfoDialog(context, isDark, 'Use Ctrl+F to search within the JSON data');
         break;
     }
   }
 
-  void _handleToggleTheme(ThemeMode mode) {
+  void _handleToggleTheme(BuildContext context, ThemeMode mode) {
     context.read<AppProvider>().handleToggleThemeMode(mode);
   }
 
   Future<void> _openFromClipboard(BuildContext context) async {
+    final isDark = AppTheme.isDark(context);
+
     try {
       final clipboardData = await Clipboard.getData('text/plain');
 
@@ -219,107 +231,115 @@ class _WindowsPlatformMenuState extends State<WindowsPlatformMenu> {
       if (clipboardData?.text != null && clipboardData!.text!.isNotEmpty) {
         await context.read<JsonProvider>().loadJsonFromString(clipboardData.text!);
       } else {
-        _showErrorDialog(context, 'Clipboard is empty or does not contain text.');
+        _showErrorDialog(context, isDark, 'Clipboard is empty or does not contain text.');
       }
     } catch (e) {
       if (context.mounted) {
-        _showErrorDialog(context, 'Failed to read from clipboard: $e');
+        _showErrorDialog(context, isDark, 'Failed to read from clipboard: $e');
       }
     }
   }
 
-  void _showAboutDialog(BuildContext context) {
+  void _showAboutDialog(BuildContext context, bool isDark, Color textColor) {
     showDialog(
       context: context,
-      builder: (context) => fluent.ContentDialog(
-        title: const Text('About JSONTry'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            FutureBuilder<String?>(
-                future: _getAppVersion(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Text('Loading version...');
-                  } else if (snapshot.hasError) {
-                    return const Text('Version: Error loading version');
-                  } else {
-                    return Text('JSONTry v${snapshot.data}');
-                  }
-                }),
-            const SizedBox(height: 8),
-            const Text('An open source JSON viewer.'),
-            const SizedBox(height: 8),
-            const Text('Features:'),
-            const Text('• View and navigate large JSON files'),
-            const Text('• Search through JSON data'),
-            const Text('• Copy keys, values, and paths'),
-            const Text('• Optimized performance for large files'),
-            const SizedBox(height: 16),
-            const Text('Made with ☕ by Riva Farabi.'),
-            const Text('© 2025 Bigvaria. All rights reserved.'),
-          ],
-        ),
-        actions: [
-          fluent.Button(
-              child: const Text('GitHub'),
+      builder: (context) => Theme(
+        data: AppTheme.themeData(isDark),
+        child: AlertDialog(
+          title: const Text('About JSONTry'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FutureBuilder<String?>(
+                    future: _getAppVersion(),
+                    builder: (context, snapshot) {
+                      final style = TextStyle(color: textColor, fontWeight: FontWeight.w600);
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Text('Loading version...');
+                      } else if (snapshot.hasError) {
+                        return Text('Version: Error loading version', style: style);
+                      } else {
+                        return Text('JSONTry v${snapshot.data}', style: style);
+                      }
+                    }),
+                const SizedBox(height: 8),
+                const Text('An open source JSON viewer.'),
+                const SizedBox(height: 8),
+                Text('Features:', style: TextStyle(color: textColor, fontWeight: FontWeight.w600)),
+                const Text('• View and navigate large JSON files'),
+                const Text('• Search through JSON data'),
+                const Text('• Copy keys, values, and paths'),
+                const Text('• Optimized performance for large files'),
+                const SizedBox(height: 16),
+                const Text('Made with ☕ by Riva Farabi.'),
+                const Text('© 2025 Bigvaria. All rights reserved.'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
               onPressed: () {
                 launchUrl(Uri.parse('https://github.com/rivafarabi/jsontry'));
-              }),
-          fluent.Button(
-            child: const Text('OK'),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ],
+              },
+              child: const Text('GitHub'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  void _showErrorDialog(BuildContext context, String message) {
+  void _showErrorDialog(BuildContext context, bool isDark, String message) {
     showDialog(
       context: context,
-      builder: (context) => fluent.ContentDialog(
-        title: const Text('Error'),
-        content: Text(message),
-        actions: [
-          fluent.Button(
-            child: const Text('OK'),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ],
+      builder: (context) => Theme(
+        data: AppTheme.themeData(isDark),
+        child: AlertDialog(
+          title: const Text('Error'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  void _showInfoDialog(BuildContext context, String message) {
+  void _showInfoDialog(BuildContext context, bool isDark, String message) {
     showDialog(
       context: context,
-      builder: (context) => fluent.ContentDialog(
-        title: const Text('Information'),
-        content: Text(message),
-        actions: [
-          fluent.Button(
-            child: const Text('OK'),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ],
+      builder: (context) => Theme(
+        data: AppTheme.themeData(isDark),
+        child: AlertDialog(
+          title: const Text('Information'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildCheckmark() {
-    final checkmarkIcon = UniversalPlatform.isMacOS
-        ? CupertinoIcons.check_mark
-        : UniversalPlatform.isWindows
-            ? fluent.FluentIcons.check_mark
-            : Icons.check;
-
+  Widget _buildCheckmark(Color color) {
     return SizedBox(
       width: 16,
       child: Icon(
-        checkmarkIcon,
+        Icons.check_rounded,
         size: 16,
+        color: color,
       ),
     );
   }

@@ -63,29 +63,30 @@ class _JsonNodeRowState extends State<JsonNodeRow> {
       child: Listener(
         onPointerDown: _handlePointerDown,
         child: Container(
-          height: 25,
+          height: 26,
           padding: EdgeInsets.only(
             left: (widget.node.depth * 16.0),
             right: 12.0,
-            top: 3.0,
-            bottom: 3.0,
+            top: 4.0,
+            bottom: 4.0,
           ),
           decoration: BoxDecoration(color: backgroundColor),
           child: Row(
             children: [
               SizedBox(width: (isCollapsible ? 8.0 : 30) + (widget.node.depth * 8.0)),
               _buildExpansionIcon(isCollapsible),
-              if (widget.node.key != null) ...[
-                Text(
-                  '${widget.node.key}',
-                  style: widget.styleCache.keyStyle.copyWith(color: widget.colorScheme.keyColor),
+              Expanded(
+                  child: RichText(
+                text: TextSpan(
+                  children: <TextSpan>[
+                    TextSpan(
+                      text: '${widget.node.key}: ',
+                      style: widget.styleCache.keyStyle.copyWith(color: widget.colorScheme.keyColor),
+                    ),
+                    _buildValueWidget(),
+                  ],
                 ),
-                Text(
-                  ' : ',
-                  style: widget.styleCache.colonStyle.copyWith(color: widget.colorScheme.keyColor),
-                ),
-              ],
-              Expanded(child: _buildValueWidget()),
+              )),
               const SizedBox(width: 8),
               _buildTypeIndicator(),
             ],
@@ -108,7 +109,7 @@ class _JsonNodeRowState extends State<JsonNodeRow> {
   }
 
   Color _getBackgroundColor(bool isEven, bool isSelected, bool isSearchMatch, bool isCurrentResult) {
-    if (isSelected) return widget.colorScheme.currentResultColor;
+    if (isSelected) return widget.colorScheme.selectedColor;
     if (isCurrentResult) return widget.colorScheme.currentResultColor;
     if (isSearchMatch) return widget.colorScheme.searchMatchColor;
     return isEven ? widget.colorScheme.evenRowColor : widget.colorScheme.oddRowColor;
@@ -121,26 +122,25 @@ class _JsonNodeRowState extends State<JsonNodeRow> {
       return const SizedBox.shrink();
     }
 
-    return GestureDetector(
-      onTap: widget.onToggleTap,
-      child: Container(
-        width: 14,
-        height: 14,
-        margin: const EdgeInsets.only(right: 8),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade400, width: 1),
-          borderRadius: BorderRadius.circular(2),
-        ),
-        child: Icon(
-          widget.node.isExpanded ? Icons.remove : Icons.add,
-          size: 10,
-          color: widget.colorScheme.expansionButtonColor,
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: GestureDetector(
+        onTap: widget.onToggleTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: Icon(
+            widget.node.isExpanded ? Icons.expand_more : Icons.chevron_right,
+            size: 18,
+            color: widget.colorScheme.expansionButtonColor,
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildValueWidget() {
+  TextSpan _buildValueWidget() {
     final style = widget.styleCache.baseStyle.copyWith(
       color: widget.colorScheme.getValueColor(widget.node.type),
     );
@@ -148,49 +148,42 @@ class _JsonNodeRowState extends State<JsonNodeRow> {
     switch (widget.node.type) {
       case JsonNodeType.object:
         final objectMap = widget.node.value as Map<String, dynamic>;
-        return Text(
-          widget.node.isExpanded ? '{' : '{ ${objectMap.length} ${objectMap.length == 1 ? 'item' : 'items'} }',
+        return TextSpan(
+          text: widget.node.isExpanded ? '{' : '{ ${objectMap.length} ${objectMap.length == 1 ? 'item' : 'items'} }',
           style: style.copyWith(fontWeight: FontWeight.w500),
         );
 
       case JsonNodeType.array:
         final arrayList = widget.node.value as List;
-        return Text(
-          widget.node.isExpanded ? '[' : '[ ${arrayList.length} ${arrayList.length == 1 ? 'item' : 'items'} ]',
+        return TextSpan(
+          text: widget.node.isExpanded ? '[' : '[ ${arrayList.length} ${arrayList.length == 1 ? 'item' : 'items'} ]',
           style: style.copyWith(fontWeight: FontWeight.w500),
         );
 
       case JsonNodeType.string:
-        return Text(
-          '"${widget.node.value}"',
+        return TextSpan(
+          text: '"${widget.node.value}"',
           style: style,
-          overflow: TextOverflow.ellipsis,
         );
 
       case JsonNodeType.number:
-        return Text(
-          widget.node.value.toString(),
+        return TextSpan(
+          text: widget.node.value.toString(),
           style: style.copyWith(fontWeight: FontWeight.w500),
         );
 
       case JsonNodeType.boolean:
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          child: Text(
-            widget.node.value.toString(),
-            style: style.copyWith(fontWeight: FontWeight.w600),
-          ),
+        return TextSpan(
+          text: widget.node.value.toString(),
+          style: style.copyWith(fontWeight: FontWeight.w600),
         );
 
       case JsonNodeType.nullValue:
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          child: Text(
-            'null',
-            style: style.copyWith(
-              fontStyle: FontStyle.italic,
-              fontWeight: FontWeight.w500,
-            ),
+        return TextSpan(
+          text: 'null',
+          style: style.copyWith(
+            fontStyle: FontStyle.italic,
+            fontWeight: FontWeight.w500,
           ),
         );
     }
@@ -203,20 +196,16 @@ class _JsonNodeRowState extends State<JsonNodeRow> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: typeColor.withOpacity(0.15),
+        color: typeColor.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: typeColor.withOpacity(0.3),
+          color: typeColor.withValues(alpha: 0.35),
           width: 1,
         ),
       ),
       child: Text(
         typeLabel,
-        style: TextStyle(
-          fontSize: 10,
-          color: typeColor,
-          fontWeight: FontWeight.w600,
-        ),
+        style: widget.styleCache.typeLabelStyle.copyWith(color: typeColor),
       ),
     );
   }
