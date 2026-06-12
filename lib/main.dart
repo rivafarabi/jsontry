@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:jsontry/providers/app_provider.dart';
 import 'package:provider/provider.dart';
@@ -8,7 +10,7 @@ import 'package:window_manager/window_manager.dart';
 import 'providers/json_provider.dart';
 import 'screens/json_viewer_screen.dart';
 
-void main() async {
+void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   await windowManager.ensureInitialized();
 
@@ -18,11 +20,16 @@ void main() async {
     await windowManager.focus();
   });
 
-  runApp(const JsonTryApp());
+  final jsonProvider = JsonProvider();
+  unawaited(jsonProvider.initialize(launchArgs: args));
+
+  runApp(JsonTryApp(jsonProvider: jsonProvider));
 }
 
 class JsonTryApp extends StatelessWidget {
-  const JsonTryApp({super.key});
+  final JsonProvider jsonProvider;
+
+  const JsonTryApp({super.key, required this.jsonProvider});
 
   @override
   Widget build(BuildContext context) {
@@ -31,8 +38,8 @@ class JsonTryApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (context) => AppProvider(),
         ),
-        ChangeNotifierProvider(
-          create: (context) => JsonProvider(),
+        ChangeNotifierProvider.value(
+          value: jsonProvider,
         ),
       ],
       child: Consumer2<AppProvider, JsonProvider>(
