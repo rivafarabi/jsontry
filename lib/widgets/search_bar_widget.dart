@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/json_provider.dart';
 import '../utils/app_theme.dart';
@@ -14,6 +15,14 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
   final TextEditingController _searchController = TextEditingController();
 
   void _onSubmitted(String value) {
+    final provider = context.read<JsonProvider>();
+
+    // If the query is unchanged from the last search, Enter jumps to the next result
+    if (value.isNotEmpty && value.toLowerCase() == provider.searchQuery && provider.searchResultsCount > 0) {
+      provider.nextSearchResult();
+      return;
+    }
+
     if (value.length >= 3 || value.isEmpty) {
       context.read<JsonProvider>().search(value);
     }
@@ -42,36 +51,45 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
           child: Row(
             children: [
               Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  style: TextStyle(fontSize: 13, color: AppTheme.textPrimary(isDark)),
-                  decoration: InputDecoration(
-                    hintText: 'Search keys and values (min 3 characters)...',
-                    prefixIcon: Icon(Icons.search_rounded, size: 18, color: AppTheme.textSecondary(isDark)),
-                    prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 0),
-                    suffixIconConstraints: const BoxConstraints(minHeight: 30),
-                    suffixIcon: provider.isSearching
-                        ? Padding(
-                            padding: const EdgeInsets.all(10),
-                            child: SizedBox(
-                              width: 12,
-                              height: 12,
-                              child: FittedBox(
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 4,
-                                  color: AppTheme.accent(isDark),
+                child: Focus(
+                  onKeyEvent: (node, event) {
+                    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter) {
+                      _onSubmitted(_searchController.text);
+                      return KeyEventResult.handled;
+                    }
+                    return KeyEventResult.ignored;
+                  },
+                  child: TextField(
+                    controller: _searchController,
+                    style: TextStyle(fontSize: 13, color: AppTheme.textPrimary(isDark)),
+                    decoration: InputDecoration(
+                      hintText: 'Search keys and values (min 3 characters)...',
+                      prefixIcon: Icon(Icons.search_rounded, size: 18, color: AppTheme.textSecondary(isDark)),
+                      prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 0),
+                      suffixIconConstraints: const BoxConstraints(minHeight: 30),
+                      suffixIcon: provider.isSearching
+                          ? Padding(
+                              padding: const EdgeInsets.all(10),
+                              child: SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: FittedBox(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 4,
+                                    color: AppTheme.accent(isDark),
+                                  ),
                                 ),
                               ),
-                            ),
-                          )
-                        : null,
+                            )
+                          : null,
+                    ),
+                    onChanged: (value) {
+                      if (value.length >= 3 || value.isEmpty) {
+                        provider.search(value);
+                      }
+                    },
+                    onSubmitted: _onSubmitted,
                   ),
-                  onChanged: (value) {
-                    if (value.length >= 3 || value.isEmpty) {
-                      provider.search(value);
-                    }
-                  },
-                  onSubmitted: _onSubmitted,
                 ),
               ),
               if (provider.searchQuery.isNotEmpty) ...[
@@ -95,13 +113,13 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
                 _SearchIconButton(
                   icon: Icons.keyboard_arrow_up_rounded,
                   tooltip: 'Previous match',
-                  onPressed: provider.searchResultsCount > 0 ? () => provider.previousSearchResult(context) : null,
+                  onPressed: provider.searchResultsCount > 0 ? () => provider.previousSearchResult() : null,
                   isDark: isDark,
                 ),
                 _SearchIconButton(
                   icon: Icons.keyboard_arrow_down_rounded,
                   tooltip: 'Next match',
-                  onPressed: provider.searchResultsCount > 0 ? () => provider.nextSearchResult(context) : null,
+                  onPressed: provider.searchResultsCount > 0 ? () => provider.nextSearchResult() : null,
                   isDark: isDark,
                 ),
                 _SearchIconButton(

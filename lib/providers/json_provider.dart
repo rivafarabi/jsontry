@@ -491,13 +491,69 @@ class JsonProvider extends ChangeNotifier {
     try {
       final results = _searchController.search(_nodes, _searchQuery);
       _searchResults = results;
-      _currentSearchIndex = results.isNotEmpty ? 0 : -1;
+
+      if (results.isNotEmpty) {
+        _currentSearchIndex = _findNearestResultIndex(results);
+        _scrollToCurrentSearchResult();
+      } else {
+        _currentSearchIndex = -1;
+      }
+
       _isSearching = false;
       notifyListeners();
     } catch (e) {
       _isSearching = false;
       notifyListeners();
     }
+  }
+
+  /// Finds the index (within [results]) of the search result closest to the
+  /// node currently in view, based on document order.
+  int _findNearestResultIndex(List<String> results) {
+    if (results.length <= 1 || _flattenNodes.isEmpty || !_scrollController.hasClients) {
+      return 0;
+    }
+
+    final documentOrder = _buildDocumentOrderIndex();
+
+    final visibleIndex = (_scrollController.offset / _estimatedItemHeight).floor().clamp(0, _flattenNodes.length - 1);
+    final referenceOrder = documentOrder[_flattenNodes[visibleIndex].path];
+    if (referenceOrder == null) return 0;
+
+    var nearestIndex = 0;
+    var smallestDistance = double.infinity;
+
+    for (var i = 0; i < results.length; i++) {
+      final resultOrder = documentOrder[results[i]];
+      if (resultOrder == null) continue;
+
+      final distance = (resultOrder - referenceOrder).abs().toDouble();
+      if (distance < smallestDistance) {
+        smallestDistance = distance;
+        nearestIndex = i;
+      }
+    }
+
+    return nearestIndex;
+  }
+
+  /// Maps every node path to its position in a depth-first traversal of the
+  /// full (unflattened) tree, regardless of expansion state.
+  Map<String, int> _buildDocumentOrderIndex() {
+    final order = <String, int>{};
+    var index = 0;
+
+    void visit(List<JsonNode> nodes) {
+      for (final node in nodes) {
+        order[node.path] = index++;
+        if (node.children != null) {
+          visit(node.children!);
+        }
+      }
+    }
+
+    visit(_nodes);
+    return order;
   }
 
   void clearData() {
@@ -572,7 +628,7 @@ class JsonProvider extends ChangeNotifier {
     }).toList();
   }
 
-  void nextSearchResult(BuildContext context) {
+  void nextSearchResult() {
     if (_searchResults.isNotEmpty) {
       if (_currentSearchIndex < _searchResults.length - 1) {
         _currentSearchIndex++;
@@ -580,12 +636,12 @@ class JsonProvider extends ChangeNotifier {
         _currentSearchIndex = 0;
       }
 
-      _scrollToCurrentSearchResult(context);
+      _scrollToCurrentSearchResult();
       notifyListeners();
     }
   }
 
-  void previousSearchResult(BuildContext context) {
+  void previousSearchResult() {
     if (_searchResults.isNotEmpty) {
       if (_currentSearchIndex > 0) {
         _currentSearchIndex--;
@@ -593,7 +649,7 @@ class JsonProvider extends ChangeNotifier {
         _currentSearchIndex = _searchResults.length - 1;
       }
 
-      _scrollToCurrentSearchResult(context);
+      _scrollToCurrentSearchResult();
       notifyListeners();
     }
   }
@@ -613,7 +669,7 @@ class JsonProvider extends ChangeNotifier {
     return currentSearchResultPath == nodePath;
   }
 
-  void _scrollToCurrentSearchResult(BuildContext context) {
+  void _scrollToCurrentSearchResult() {
     final currentPath = currentSearchResultPath;
     if (currentPath != null && currentPath != _lastScrolledPath) {
       _lastScrolledPath = currentPath;
@@ -622,12 +678,12 @@ class JsonProvider extends ChangeNotifier {
       final index = _findNodeIndex(_nodes, currentPath, 0, skipFlatten: false);
       if (index != -1 && _scrollController.hasClients) {
         _flattenNodes = _getFlattenNodes(_nodes);
-        // Calculate the scroll offset
-        final targetOffset = index * _estimatedItemHeight - (MediaQuery.of(context).size.height / 2) + (_estimatedItemHeight * 2);
+        // Calculate the scroll offset, centering the result in the viewport
+        final viewportHeight = _scrollController.position.viewportDimension;
+        final targetOffset = index * _estimatedItemHeight - (viewportHeight / 2) + (_estimatedItemHeight * 2);
         final maxScrollExtent = _scrollController.position.maxScrollExtent;
         final clampedOffset = targetOffset.clamp(0.0, maxScrollExtent);
 
-        // Use a slight delay to ensure the widget is fully rendered
         _scrollController.jumpTo(clampedOffset);
       }
     }
