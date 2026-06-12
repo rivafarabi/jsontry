@@ -86,11 +86,7 @@ class JsonProvider extends ChangeNotifier {
       case 'Formatted Value':
         String valueText;
         if (node.type == JsonNodeType.object || node.type == JsonNodeType.array) {
-          try {
-            valueText = const JsonEncoder.withIndent('  ').convert(node.value);
-          } catch (e) {
-            valueText = node.value.toString();
-          }
+          valueText = const JsonEncoder.withIndent('  ').convert(_nodeToPlainValue(node));
         } else if (node.type == JsonNodeType.string) {
           valueText = node.value.toString();
         } else {
@@ -100,8 +96,8 @@ class JsonProvider extends ChangeNotifier {
         break;
       case 'Minified Value':
         String minifiedValue;
-        if (node.type == JsonNodeType.string) {
-          minifiedValue = node.value.toString();
+        if (node.type == JsonNodeType.object || node.type == JsonNodeType.array) {
+          minifiedValue = jsonEncode(_nodeToPlainValue(node));
         } else {
           minifiedValue = node.value.toString();
         }
@@ -114,6 +110,18 @@ class JsonProvider extends ChangeNotifier {
       case 'Collapse':
         toggleNode(node.path);
         break;
+    }
+  }
+
+  /// Reconstructs a plain Map/List/scalar from a node's subtree, for clipboard export.
+  dynamic _nodeToPlainValue(JsonNode node) {
+    switch (node.type) {
+      case JsonNodeType.object:
+        return {for (final child in node.children!) child.key!: _nodeToPlainValue(child)};
+      case JsonNodeType.array:
+        return node.children!.map(_nodeToPlainValue).toList();
+      default:
+        return node.value;
     }
   }
 
@@ -266,66 +274,66 @@ class JsonProvider extends ChangeNotifier {
     _totalNodes = _countTotalNodes(_nodes);
   }
 
-  List<JsonNode> _parseJsonToNodes(dynamic json, {String? parentKey, int depth = 0, String path = ''}) {
+  List<JsonNode> _parseJsonToNodes(dynamic json, {String? parentKey, int depth = 0, JsonNode? parent}) {
     List<JsonNode> nodes = [];
 
     if (json is Map<String, dynamic>) {
       // For objects, create a node for the object itself
       if (parentKey != null) {
-        nodes.add(JsonNode(
+        final node = JsonNode(
           key: parentKey,
-          value: json,
+          value: null,
           type: JsonNodeType.object,
           depth: depth,
-          path: path,
-          children: _parseObjectChildren(json, depth + 1, path),
-        ));
+          parent: parent,
+        );
+        node.children = _parseObjectChildren(json, depth + 1, node);
+        nodes.add(node);
       } else {
         // Root object
-        nodes.addAll(_parseObjectChildren(json, depth, path));
+        nodes.addAll(_parseObjectChildren(json, depth, parent));
       }
     } else if (json is List) {
       // For arrays
       if (parentKey != null) {
-        nodes.add(JsonNode(
+        final node = JsonNode(
           key: parentKey,
-          value: json,
+          value: null,
           type: JsonNodeType.array,
           depth: depth,
-          path: path,
-          children: _parseArrayChildren(json, depth + 1, path),
-        ));
+          parent: parent,
+        );
+        node.children = _parseArrayChildren(json, depth + 1, node);
+        nodes.add(node);
       } else {
         // Root array
-        nodes.addAll(_parseArrayChildren(json, depth, path));
+        nodes.addAll(_parseArrayChildren(json, depth, parent));
       }
     } else {
       // Primitive values
-      nodes.add(_createPrimitiveNode(parentKey, json, depth, path));
+      nodes.add(_createPrimitiveNode(parentKey, json, depth, parent));
     }
 
     return nodes;
   }
 
-  List<JsonNode> _parseObjectChildren(Map<String, dynamic> obj, int depth, String parentPath) {
+  List<JsonNode> _parseObjectChildren(Map<String, dynamic> obj, int depth, JsonNode? parent) {
     List<JsonNode> children = [];
     obj.forEach((key, value) {
-      final currentPath = parentPath.isEmpty ? key : '$parentPath.$key';
-      children.addAll(_parseJsonToNodes(value, parentKey: key, depth: depth, path: currentPath));
+      children.addAll(_parseJsonToNodes(value, parentKey: key, depth: depth, parent: parent));
     });
     return children;
   }
 
-  List<JsonNode> _parseArrayChildren(List list, int depth, String parentPath) {
+  List<JsonNode> _parseArrayChildren(List list, int depth, JsonNode? parent) {
     List<JsonNode> children = [];
     for (int i = 0; i < list.length; i++) {
-      final currentPath = '$parentPath[$i]';
-      children.addAll(_parseJsonToNodes(list[i], parentKey: '[$i]', depth: depth, path: currentPath));
+      children.addAll(_parseJsonToNodes(list[i], parentKey: '[$i]', depth: depth, parent: parent));
     }
     return children;
   }
 
-  JsonNode _createPrimitiveNode(String? key, dynamic value, int depth, String path) {
+  JsonNode _createPrimitiveNode(String? key, dynamic value, int depth, JsonNode? parent) {
     JsonNodeType type;
     if (value == null) {
       type = JsonNodeType.nullValue;
@@ -344,7 +352,7 @@ class JsonProvider extends ChangeNotifier {
       value: value,
       type: type,
       depth: depth,
-      path: path,
+      parent: parent,
     );
   }
 
@@ -362,63 +370,45 @@ class JsonProvider extends ChangeNotifier {
   void selectNode(JsonNode node) {
     if (_selectedNode?.path == node.path) return;
 
+    _selectedNode?.isSelected = false;
+    node.isSelected = true;
     _selectedNode = node;
-    int selectedIndex = _flattenNodes.indexWhere((n) => n.path == node.path);
-    int unselectedIndex = _flattenNodes.indexWhere((n) => n.isSelected);
-    _flattenNodes[selectedIndex] = _flattenNodes[selectedIndex].copyWith(isSelected: true);
-
-    if (unselectedIndex != -1) {
-      _flattenNodes[unselectedIndex] = _flattenNodes[unselectedIndex].copyWith(isSelected: false);
-    }
 
     notifyListeners();
   }
 
   void toggleNode(String path, {bool skipFlatten = false}) {
-    _nodes = _updateNodeExpansion(_nodes, path);
+    _toggleNodeExpansion(_nodes, path);
 
     if (!skipFlatten) {
       _flattenNodes = _getFlattenNodes(_nodes);
-
-      if (_selectedNode != null) {
-        int selectedIndex = _flattenNodes.indexWhere((n) => n.path == _selectedNode!.path);
-
-        if (selectedIndex != -1) {
-          _flattenNodes[selectedIndex] = _flattenNodes[selectedIndex].copyWith(isSelected: true);
-        } else {
-          _selectedNode == null;
-        }
-      }
     }
 
     notifyListeners();
   }
 
-  List<JsonNode> _updateNodeExpansion(List<JsonNode> nodes, String targetPath, {bool? forceExpand}) {
-    return nodes.map((node) {
+  /// Mutates the expansion state of the node at [targetPath] in place. Returns
+  /// true once the node is found, so the search can stop early.
+  bool _toggleNodeExpansion(List<JsonNode> nodes, String targetPath, {bool? forceExpand}) {
+    for (final node in nodes) {
       if (node.path == targetPath) {
-        bool newExpanded = forceExpand ?? !node.isExpanded;
-        return node.copyWith(isExpanded: newExpanded);
+        node.isExpanded = forceExpand ?? !node.isExpanded;
+        return true;
       } else if (node.children != null && targetPath.startsWith(node.path)) {
         // Only traverse children if the target path could be in this subtree
-        return node.copyWith(children: _updateNodeExpansion(node.children!, targetPath, forceExpand: forceExpand));
+        if (_toggleNodeExpansion(node.children!, targetPath, forceExpand: forceExpand)) {
+          return true;
+        }
       }
-      return node;
-    }).toList();
+    }
+    return false;
   }
 
   void expandAll() {
     if (_nodes.isEmpty) return;
 
-    _nodes = _expandAllNodes(_nodes);
+    _setExpansionRecursive(_nodes, true);
     _flattenNodes = _getFlattenNodes(_nodes);
-
-    if (_selectedNode != null) {
-      int selectedIndex = _flattenNodes.indexWhere((n) => n.path == _selectedNode!.path);
-      if (selectedIndex != -1) {
-        _flattenNodes[selectedIndex] = _flattenNodes[selectedIndex].copyWith(isSelected: true);
-      }
-    }
 
     notifyListeners();
   }
@@ -426,41 +416,19 @@ class JsonProvider extends ChangeNotifier {
   void collapseAll() {
     if (_nodes.isEmpty) return;
 
-    _nodes = _collapseAllNodes(_nodes);
+    _setExpansionRecursive(_nodes, false);
     _flattenNodes = _getFlattenNodes(_nodes);
-
-    if (_selectedNode != null) {
-      int selectedIndex = _flattenNodes.indexWhere((n) => n.path == _selectedNode!.path);
-      if (selectedIndex != -1) {
-        _flattenNodes[selectedIndex] = _flattenNodes[selectedIndex].copyWith(isSelected: true);
-      }
-    }
 
     notifyListeners();
   }
 
-  List<JsonNode> _expandAllNodes(List<JsonNode> nodes) {
-    return nodes.map((node) {
+  void _setExpansionRecursive(List<JsonNode> nodes, bool expanded) {
+    for (final node in nodes) {
       if (node.children != null && node.children!.isNotEmpty) {
-        return node.copyWith(
-          isExpanded: true,
-          children: _expandAllNodes(node.children!),
-        );
+        node.isExpanded = expanded;
+        _setExpansionRecursive(node.children!, expanded);
       }
-      return node;
-    }).toList();
-  }
-
-  List<JsonNode> _collapseAllNodes(List<JsonNode> nodes) {
-    return nodes.map((node) {
-      if (node.children != null && node.children!.isNotEmpty) {
-        return node.copyWith(
-          isExpanded: false,
-          children: _collapseAllNodes(node.children!),
-        );
-      }
-      return node;
-    }).toList();
+    }
   }
 
   void search(String query) {
@@ -544,32 +512,22 @@ class JsonProvider extends ChangeNotifier {
 
   @visibleForTesting
   List<JsonNode> expandPathsBatch(List<JsonNode> nodes, Set<String> pathsToExpand) {
-    return nodes.map((node) {
-      // Check if this node's path should be expanded
-      bool shouldExpand = pathsToExpand.contains(node.path);
+    for (final node in nodes) {
+      if (pathsToExpand.contains(node.path)) {
+        node.isExpanded = true;
+      }
 
-      // Process children if they exist and this path might contain targets
-      List<JsonNode>? updatedChildren;
       if (node.children != null) {
         // Only traverse children if any target path starts with this node's path
         bool hasChildTargets = pathsToExpand.any((path) => path.startsWith(node.path) && path.length > node.path.length);
 
         if (hasChildTargets) {
-          updatedChildren = expandPathsBatch(node.children!, pathsToExpand);
-        } else {
-          updatedChildren = node.children;
+          expandPathsBatch(node.children!, pathsToExpand);
         }
       }
+    }
 
-      // Return updated node if expansion state changed or children were updated
-      if (shouldExpand && !node.isExpanded) {
-        return node.copyWith(isExpanded: true, children: updatedChildren);
-      } else if (updatedChildren != node.children) {
-        return node.copyWith(children: updatedChildren);
-      }
-
-      return node;
-    }).toList();
+    return nodes;
   }
 
   void nextSearchResult(BuildContext context) {
@@ -636,7 +594,7 @@ class JsonProvider extends ChangeNotifier {
   int _findNodeIndex(List<JsonNode> nodes, String targetPath, int currentIndex, {bool skipFlatten = true}) {
     final targetPathSegments = getPathSegments(targetPath);
 
-    for (var node in nodes) {
+    for (final node in nodes) {
       if (node.path == targetPath) {
         return currentIndex;
       }
@@ -665,7 +623,6 @@ class JsonProvider extends ChangeNotifier {
 
       if (!node.isExpanded && node.children != null) {
         toggleNode(node.path, skipFlatten: skipFlatten);
-        node = node.copyWith(isExpanded: true);
       }
 
       // If node is expanded and has children, search in children

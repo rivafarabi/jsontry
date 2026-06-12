@@ -3,63 +3,46 @@ class JsonNode {
   final dynamic value;
   final JsonNodeType type;
   final int depth;
-  final String path;
-  final bool isExpanded;
-  final bool isSelected;
-  final List<JsonNode>? children;
+  final JsonNode? parent;
+  bool isExpanded;
+  bool isSelected;
+  List<JsonNode>? children;
 
   JsonNode({
     this.key,
     required this.value,
     required this.type,
     required this.depth,
-    required this.path,
+    this.parent,
     this.isExpanded = false,
     this.isSelected = false,
     this.children,
   });
 
-  bool get isCollapsible {
-    if (type == JsonNodeType.object) {
-      return value is Map<String, dynamic> && (value as Map<String, dynamic>).isNotEmpty;
-    } else if (type == JsonNodeType.array) {
-      return value is List && (value as List).isNotEmpty;
-    } else {
-      return false;
+  bool get isCollapsible => children != null && children!.isNotEmpty;
+
+  /// Absolute path (e.g. "data.items[0].name"), derived by walking [parent]
+  /// references rather than stored, so it doesn't cost memory per node.
+  String get path {
+    final segments = <String>[];
+    JsonNode? node = this;
+    while (node != null) {
+      final key = node.key;
+      if (key != null) segments.add(key);
+      node = node.parent;
     }
-  }
 
-  JsonNode copyWith({
-    String? key,
-    dynamic value,
-    JsonNodeType? type,
-    int? depth,
-    String? path,
-    bool? isExpanded,
-    bool? isSelected,
-    List<JsonNode>? children,
-  }) {
-    return JsonNode(
-      key: key ?? this.key,
-      value: value ?? this.value,
-      type: type ?? this.type,
-      depth: depth ?? this.depth,
-      path: path ?? this.path,
-      isExpanded: isExpanded ?? this.isExpanded,
-      isSelected: isSelected ?? this.isSelected,
-      children: children ?? this.children,
-    );
-  }
-
-  JsonNode withoutChildren() {
-    return JsonNode(
-      key: key,
-      value: value,
-      type: type,
-      depth: depth,
-      path: path,
-      isExpanded: isExpanded,
-    );
+    final buffer = StringBuffer();
+    for (var i = segments.length - 1; i >= 0; i--) {
+      final segment = segments[i];
+      if (segment.startsWith('[')) {
+        buffer.write(segment);
+      } else {
+        if (buffer.isNotEmpty) buffer.write('.');
+        buffer.write(segment);
+      }
+    }
+    return buffer.toString();
   }
 }
 

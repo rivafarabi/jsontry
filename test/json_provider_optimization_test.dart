@@ -47,52 +47,81 @@ void main() {
     });
 
     test('expandPathsBatch should efficiently expand multiple paths', () {
-      // Create a simple node structure
+      // Create a simple node structure (paths are derived from key/parent chains)
+      final rootNode = JsonNode(
+        key: 'root',
+        value: null,
+        type: JsonNodeType.object,
+        depth: 1,
+        isExpanded: false,
+      );
+
+      final parentNode = JsonNode(
+        key: 'parent',
+        value: null,
+        type: JsonNodeType.object,
+        depth: 2,
+        isExpanded: false,
+        parent: rootNode,
+      );
+
       final grandchildNode = JsonNode(
         key: 'grandchild',
         value: 'value',
         type: JsonNodeType.string,
         depth: 3,
-        path: 'root.parent.grandchild',
+        parent: parentNode,
       );
-      
-      final childNode = JsonNode(
-        key: 'child',
-        value: {'grandchild': 'value'},
-        type: JsonNodeType.object,
-        depth: 2,
-        path: 'root.parent',
-        isExpanded: false,
-        children: [grandchildNode],
-      );
-      
-      final parentNode = JsonNode(
-        key: 'parent',
-        value: {'child': {'grandchild': 'value'}},
-        type: JsonNodeType.object,
-        depth: 1,
-        path: 'root',
-        isExpanded: false,
-        children: [childNode],
-      );
-      
-      final nodes = [parentNode];
+
+      parentNode.children = [grandchildNode];
+      rootNode.children = [parentNode];
+
+      final nodes = [rootNode];
       final pathsToExpand = {'root', 'root.parent'};
-      
+
       final result = jsonProvider.expandPathsBatch(nodes, pathsToExpand);
-      
+
       // Root should be expanded
       expect(result.first.isExpanded, isTrue);
-      
+      expect(result.first.path, equals('root'));
+
       // Child (which has path root.parent) should be expanded
       final expandedChild = result.first.children!.first;
       expect(expandedChild.isExpanded, isTrue);
+      expect(expandedChild.path, equals('root.parent'));
     });
 
     test('performance tracking fields exist', () {
       // Just verify the performance tracking fields are accessible
       expect(jsonProvider.expandedPathsCount, equals(0));
       expect(jsonProvider.lastExpansionDuration, isNull);
+    });
+
+    test('node.path is correctly derived from parent chain for nested structures', () async {
+      const json = '''
+      {
+        "data": {
+          "items": [
+            {"name": "first"},
+            {"name": "second"}
+          ]
+        },
+        "topLevel": 1
+      }
+      ''';
+
+      await jsonProvider.loadJsonFromString(json);
+      jsonProvider.expandAll();
+
+      final pathToNode = {for (final node in jsonProvider.nodes) node.path: node};
+
+      expect(pathToNode['data'], isNotNull);
+      expect(pathToNode['data.items'], isNotNull);
+      expect(pathToNode['data.items[0]'], isNotNull);
+      expect(pathToNode['data.items[0].name'], isNotNull);
+      expect(pathToNode['data.items[0].name']!.value, equals('first'));
+      expect(pathToNode['data.items[1].name']!.value, equals('second'));
+      expect(pathToNode['topLevel'], isNotNull);
     });
   });
 }

@@ -147,16 +147,16 @@ class _JsonNodeRowState extends State<JsonNodeRow> {
 
     switch (widget.node.type) {
       case JsonNodeType.object:
-        final objectMap = widget.node.value as Map<String, dynamic>;
+        final itemCount = widget.node.children?.length ?? 0;
         return TextSpan(
-          text: widget.node.isExpanded ? '{' : '{ ${objectMap.length} ${objectMap.length == 1 ? 'item' : 'items'} }',
+          text: widget.node.isExpanded ? '{' : '{ $itemCount ${itemCount == 1 ? 'item' : 'items'} }',
           style: style.copyWith(fontWeight: FontWeight.w500),
         );
 
       case JsonNodeType.array:
-        final arrayList = widget.node.value as List;
+        final itemCount = widget.node.children?.length ?? 0;
         return TextSpan(
-          text: widget.node.isExpanded ? '[' : '[ ${arrayList.length} ${arrayList.length == 1 ? 'item' : 'items'} ]',
+          text: widget.node.isExpanded ? '[' : '[ $itemCount ${itemCount == 1 ? 'item' : 'items'} ]',
           style: style.copyWith(fontWeight: FontWeight.w500),
         );
 
@@ -213,11 +213,9 @@ class _JsonNodeRowState extends State<JsonNodeRow> {
   String _getTypeLabel() {
     switch (widget.node.type) {
       case JsonNodeType.object:
-        final objectMap = widget.node.value as Map<String, dynamic>;
-        return 'Object (${objectMap.length})';
+        return 'Object (${widget.node.children?.length ?? 0})';
       case JsonNodeType.array:
-        final arrayList = widget.node.value as List;
-        return 'Array (${arrayList.length})';
+        return 'Array (${widget.node.children?.length ?? 0})';
       case JsonNodeType.string:
         return 'String';
       case JsonNodeType.number:
