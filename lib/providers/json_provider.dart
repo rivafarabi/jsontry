@@ -8,6 +8,8 @@ import 'package:flutter/widgets.dart';
 import 'package:jsontry/models/json_node.dart';
 import 'package:jsontry/utils/path_utils.dart';
 import 'package:jsontry/utils/search_controller.dart';
+import 'package:jsontry/utils/windows_file_association.dart';
+import 'package:universal_platform/universal_platform.dart';
 import 'package:window_manager/window_manager.dart';
 
 class JsonProvider extends ChangeNotifier {
@@ -73,6 +75,42 @@ class JsonProvider extends ChangeNotifier {
       return 'CLIPBOARD - JSONTry';
     }
     return 'JSONTry';
+  }
+
+  static const MethodChannel _launchChannel = MethodChannel('com.rivafarabi.jsontry/launch');
+
+  /// Hooks up file-association launch handling. On macOS, listens for files
+  /// opened via Finder while running and checks for a file the app was
+  /// cold-launched with. On Windows, registers the app under "Open with" for
+  /// .json files and loads a file passed via command-line arguments.
+  Future<void> initialize({List<String> launchArgs = const []}) async {
+    if (UniversalPlatform.isMacOS) {
+      _launchChannel.setMethodCallHandler((call) async {
+        if (call.method == 'openFile') {
+          final path = call.arguments as String?;
+          if (path != null && path.isNotEmpty) {
+            await loadJsonFromFile(path);
+          }
+        }
+        return null;
+      });
+
+      try {
+        final initialFile = await _launchChannel.invokeMethod<String>('getInitialFile');
+        if (initialFile != null && initialFile.isNotEmpty) {
+          await loadJsonFromFile(initialFile);
+        }
+      } on PlatformException {
+        // nothing to load
+      }
+    } else if (UniversalPlatform.isWindows) {
+      unawaited(WindowsFileAssociation.registerIfNeeded());
+
+      final filePath = launchArgs.firstWhere((a) => a.toLowerCase().endsWith('.json'), orElse: () => '');
+      if (filePath.isNotEmpty && await File(filePath).exists()) {
+        await loadJsonFromFile(filePath);
+      }
+    }
   }
 
   void handleContextMenuAction(String action, JsonNode node) {
