@@ -1,11 +1,8 @@
 import 'dart:ui';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:fluent_ui/fluent_ui.dart' as fluent;
-import 'package:macos_ui/macos_ui.dart';
 import 'package:native_context_menu/native_context_menu.dart';
-import 'package:universal_platform/universal_platform.dart';
+import '../utils/app_theme.dart';
 
 ///A custom ContextMenuRegion based on context_menu_region package that support left-click mouse event
 class ContextMenuButton extends StatefulWidget {
@@ -31,31 +28,16 @@ class ContextMenuButtonState extends State<ContextMenuButton> {
 
   @override
   Widget build(BuildContext context) {
-    late IconData iconData;
-    late Color iconColor;
-
-    if (UniversalPlatform.isMacOS) {
-      bool isDark = MacosTheme.of(context).brightness == Brightness.dark;
-      iconData = CupertinoIcons.ellipsis_vertical;
-      iconColor = isDark ? CupertinoColors.systemGrey4 : CupertinoColors.black;
-    } else if (UniversalPlatform.isWindows) {
-      bool isDark = fluent.FluentTheme.of(context).brightness == Brightness.dark;
-      iconData = fluent.FluentIcons.more_vertical;
-      iconColor = isDark ? Colors.grey.shade800 : Colors.black;
-    } else {
-      bool isDark = Theme.of(context).brightness == Brightness.dark;
-      iconData = Icons.more_vert;
-      iconColor = isDark ? Colors.grey.shade800 : Colors.black;
-    }
+    final isDark = AppTheme.isDark(context);
 
     Widget defaultChild = Container(
       width: 20,
       height: 20,
       color: Colors.transparent,
       child: Icon(
-        iconData,
+        Icons.more_vert_rounded,
         size: 18,
-        color: iconColor,
+        color: AppTheme.textSecondary(isDark),
       ),
     );
 

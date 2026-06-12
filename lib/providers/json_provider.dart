@@ -30,7 +30,7 @@ class JsonProvider extends ChangeNotifier {
   JsonNode? _selectedNode;
   final ScrollController _scrollController = ScrollController();
   final SearchController _searchController = SearchController();
-  final double _estimatedItemHeight = 25;
+  final double _estimatedItemHeight = 26;
 
   // Performance tracking
   int _expandedPathsCount = 0;

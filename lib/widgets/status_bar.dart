@@ -2,109 +2,73 @@ import 'package:flutter/material.dart';
 import 'package:jsontry/widgets/context_menu_button.dart';
 import 'package:native_context_menu/native_context_menu.dart';
 import 'package:provider/provider.dart';
-import 'package:universal_platform/universal_platform.dart';
-import 'package:macos_ui/macos_ui.dart';
-import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import '../providers/json_provider.dart';
+import '../utils/app_theme.dart';
 
 class StatusBar extends StatelessWidget {
   const StatusBar({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
+
     return Consumer<JsonProvider>(
       builder: (context, provider, child) {
         return Column(
           children: [
             if (provider.selectedNode != null)
-              Container(
-                height: 36,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _getBackgroundColor(context),
-                  border: Border(
-                    top: BorderSide(
-                      color: _getBorderColor(context),
-                      width: 1,
-                    ),
-                  ),
-                ),
+              _buildBar(
+                isDark,
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          FittedBox(
-                            child: Icon(
-                              Icons.account_tree_outlined,
-                              size: 14,
-                              color: Colors.blue.withOpacity(0.8),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            provider.selectedNode!.path,
-                            style: TextStyle(fontSize: 12, color: Colors.blue.withOpacity(0.8), fontWeight: FontWeight.w600, height: 1),
-                          ),
-                        ],
+                    Flexible(
+                      child: _buildChip(
+                        isDark: isDark,
+                        icon: Icons.account_tree_outlined,
+                        label: provider.selectedNode!.path,
+                        color: AppTheme.accent(isDark),
                       ),
                     ),
-                    const Spacer(),
-                    _buildNodePathMenu(provider)
+                    _buildNodePathMenu(provider),
                   ],
                 ),
               ),
-            Container(
-              height: 36,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: BoxDecoration(
-                color: _getBackgroundColor(context),
-                border: Border(
-                  top: BorderSide(
-                    color: _getBorderColor(context),
-                    width: 1,
-                  ),
-                ),
-              ),
+            _buildBar(
+              isDark,
               child: Row(
                 children: [
                   // File size
                   if (provider.fileSize > 0) ...[
-                    _buildStatusItem(
-                      context,
-                      Icons.storage,
-                      provider.fileSizeFormatted,
-                      Colors.green,
+                    _buildChip(
+                      isDark: isDark,
+                      icon: Icons.storage_rounded,
+                      label: provider.fileSizeFormatted,
+                      color: AppTheme.statusSuccess(isDark),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                   ],
 
                   // Load time
                   if (provider.loadDuration != null) ...[
-                    _buildStatusItem(
-                      context,
-                      Icons.timer,
-                      'Loaded in ${_formatDuration(provider.loadDuration!)}',
-                      Colors.orange,
+                    _buildChip(
+                      isDark: isDark,
+                      icon: Icons.timer_outlined,
+                      label: 'Loaded in ${_formatDuration(provider.loadDuration!)}',
+                      color: AppTheme.statusWarning(isDark),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                   ],
 
                   const Spacer(),
 
                   // Node count
                   if (provider.nodes.isNotEmpty) ...[
-                    _buildStatusItem(
-                      context,
-                      Icons.account_tree,
-                      '${provider.totalNodes} nodes',
-                      Colors.indigo,
+                    _buildChip(
+                      isDark: isDark,
+                      icon: Icons.account_tree_rounded,
+                      label: '${provider.totalNodes} nodes',
+                      color: AppTheme.accent(isDark),
                     ),
                   ],
 
@@ -112,13 +76,11 @@ class StatusBar extends StatelessWidget {
                   if (provider.isLoading) ...[
                     const SizedBox(width: 12),
                     SizedBox(
-                      width: 14,
-                      height: 14,
+                      width: 13,
+                      height: 13,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Colors.blue.withOpacity(0.8),
-                        ),
+                        color: AppTheme.accent(isDark),
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -126,7 +88,7 @@ class StatusBar extends StatelessWidget {
                       'Loading...',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.blue.withOpacity(0.8),
+                        color: AppTheme.accent(isDark),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -140,53 +102,47 @@ class StatusBar extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusItem(BuildContext context, IconData icon, String text, Color color) {
+  Widget _buildBar(bool isDark, {required Widget child}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: AppTheme.surface(isDark),
+        border: Border(
+          top: BorderSide(color: AppTheme.border(isDark)),
+        ),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildChip({required bool isDark, required IconData icon, required String label, required Color color}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isDark ? 0.18 : 0.12),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 12,
-            color: color.withOpacity(0.8),
-          ),
+          Icon(icon, size: 13, color: color),
           const SizedBox(width: 4),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 11,
-              color: color.withOpacity(0.8),
-              fontWeight: FontWeight.w500,
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5,
+                color: color,
+                fontWeight: FontWeight.w600,
+                height: 1,
+              ),
             ),
           ),
         ],
       ),
     );
-  }
-
-  Color _getBackgroundColor(BuildContext context) {
-    if (UniversalPlatform.isMacOS) {
-      return MacosTheme.of(context).canvasColor;
-    } else if (UniversalPlatform.isWindows) {
-      return fluent.FluentTheme.of(context).scaffoldBackgroundColor;
-    } else {
-      return Theme.of(context).scaffoldBackgroundColor;
-    }
-  }
-
-  Color _getBorderColor(BuildContext context) {
-    if (UniversalPlatform.isMacOS) {
-      return MacosTheme.of(context).dividerColor;
-    } else if (UniversalPlatform.isWindows) {
-      return fluent.FluentTheme.of(context).resources.dividerStrokeColorDefault;
-    } else {
-      return Theme.of(context).dividerColor;
-    }
   }
 
   String _formatDuration(Duration duration) {
@@ -197,7 +153,7 @@ class StatusBar extends StatelessWidget {
     }
   }
 
-  _buildNodePathMenu(JsonProvider provider) {
+  Widget _buildNodePathMenu(JsonProvider provider) {
     return ContextMenuButton(
       onItemSelected: (item) => provider.handleContextMenuAction(item.title, provider.selectedNode!),
       menuItems: [

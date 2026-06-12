@@ -89,7 +89,7 @@ class _JsonTreeViewState extends State<JsonTreeView> {
         addSemanticIndexes: false,
         cacheExtent: 500, // Increased cache for better scrolling
         physics: const ClampingScrollPhysics(), // Better for large lists
-        itemExtent: 25, // Fixed height for better performance
+        itemExtent: 26, // Fixed height for better performance
       );
     } else {
       // Use standard ListView for smaller lists

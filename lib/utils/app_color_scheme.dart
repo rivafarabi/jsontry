@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:jsontry/models/json_node.dart';
-import 'package:macos_ui/macos_ui.dart';
-import 'package:universal_platform/universal_platform.dart';
+import 'package:jsontry/utils/app_theme.dart';
 
+/// Colors used by the JSON tree view. All values are derived from
+/// [AppTheme] so the tree looks identical across platforms and remains
+/// readable in both light and dark mode.
 class AppColorScheme {
+  late bool isDark;
   late Color backgroundColor;
-  late Color keyColor;
   late Color dividerColor;
   late Color evenRowColor;
   late Color oddRowColor;
@@ -14,58 +15,40 @@ class AppColorScheme {
   late Color searchMatchColor;
   late Color currentResultColor;
   late Color expansionButtonColor;
-  late bool isDark;
-
-  // Cached type colors
-  static const Map<JsonNodeType, Color> _typeColors = {
-    JsonNodeType.object: Color(0xFF2196F3),
-    JsonNodeType.array: Color(0xFF3F51B5),
-    JsonNodeType.string: Color(0xFF4CAF50),
-    JsonNodeType.number: Color(0xFFFF9800),
-    JsonNodeType.boolean: Color(0xFF9C27B0),
-    JsonNodeType.nullValue: Color(0xFF757575),
-  };
+  late Color keyColor;
 
   void updateColors(BuildContext context) {
-    if (UniversalPlatform.isMacOS) {
-      isDark = MacosTheme.of(context).brightness == Brightness.dark;
-      backgroundColor = MacosTheme.of(context).canvasColor;
-      dividerColor = MacosTheme.of(context).dividerColor;
-    } else if (UniversalPlatform.isWindows) {
-      isDark = fluent.FluentTheme.of(context).brightness == Brightness.dark;
-      final fluentTheme = fluent.FluentTheme.maybeOf(context);
-      backgroundColor = fluentTheme?.scaffoldBackgroundColor ?? Theme.of(context).scaffoldBackgroundColor;
-      dividerColor = fluentTheme?.resources.dividerStrokeColorDefault ?? Theme.of(context).dividerColor;
-    } else {
-      isDark = Theme.of(context).brightness == Brightness.dark;
-      backgroundColor = Theme.of(context).scaffoldBackgroundColor;
-      dividerColor = Theme.of(context).dividerColor;
-    }
+    isDark = AppTheme.isDark(context);
 
-    keyColor = isDark ? Colors.blue.shade300 : Colors.blue.shade700;
-    selectedColor = isDark ? Colors.blue.shade400 : Colors.blue.shade800;
-    evenRowColor = isDark ? Colors.grey.shade800.withOpacity(0.3) : Colors.grey.shade50;
-    oddRowColor = isDark ? Colors.grey.shade900.withOpacity(0.2) : Colors.white;
-
-    searchMatchColor = isDark ? Colors.blue.shade600.withOpacity(0.3) : Colors.blue.shade200.withOpacity(0.3);
-    currentResultColor = isDark ? Colors.blue.shade600.withOpacity(0.8) : Colors.blue.shade200.withOpacity(0.8);
-    expansionButtonColor = isDark ? Colors.white : Colors.grey.shade400;
+    backgroundColor = AppTheme.background(isDark);
+    dividerColor = AppTheme.border(isDark);
+    evenRowColor = AppTheme.surfaceVariant(isDark);
+    oddRowColor = AppTheme.background(isDark);
+    selectedColor = AppTheme.selection(isDark);
+    searchMatchColor = AppTheme.searchMatch(isDark);
+    currentResultColor = AppTheme.currentSearchMatch(isDark);
+    expansionButtonColor = AppTheme.textSecondary(isDark);
+    keyColor = AppTheme.accent(isDark);
   }
 
-  Color getTypeColor(JsonNodeType type) => _typeColors[type]!;
-
-  Color getValueColor(JsonNodeType type) {
+  Color getTypeColor(JsonNodeType type) {
     switch (type) {
+      case JsonNodeType.object:
+        return isDark ? const Color(0xFF7DB4FF) : const Color(0xFF1D5FC2);
+      case JsonNodeType.array:
+        return isDark ? const Color(0xFFB3BEFF) : const Color(0xFF4147C4);
       case JsonNodeType.string:
-        return isDark ? Colors.green.shade300 : Colors.green.shade700;
+        return isDark ? const Color(0xFF59D88B) : const Color(0xFF1A8754);
       case JsonNodeType.number:
-        return isDark ? Colors.orange.shade300 : Colors.orange.shade700;
+        return isDark ? const Color(0xFFFDBA74) : const Color(0xFFC2570C);
       case JsonNodeType.boolean:
-        return isDark ? Colors.purple.shade300 : Colors.purple.shade700;
+        return isDark ? const Color(0xFFD9A8FF) : const Color(0xFF8E33C2);
       case JsonNodeType.nullValue:
-        return isDark ? Colors.grey.shade400 : Colors.grey.shade600;
-      default:
-        return isDark ? Colors.blue.shade300 : Colors.blue.shade700;
+        return AppTheme.textTertiary(isDark);
     }
   }
+
+  /// Value text reuses the same semantic palette as the type badges so the
+  /// tree reads as one coherent color system.
+  Color getValueColor(JsonNodeType type) => getTypeColor(type);
 }

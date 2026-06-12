@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
-import 'package:universal_platform/universal_platform.dart';
-import 'package:macos_ui/macos_ui.dart';
-import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import '../providers/json_provider.dart';
+import '../utils/app_theme.dart';
 
 class SearchBarWidget extends StatefulWidget {
   const SearchBarWidget({super.key});
@@ -18,11 +15,7 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
 
   void _onSubmitted(String value) {
     if (value.length >= 3 || value.isEmpty) {
-      if (UniversalPlatform.isMacOS) {
-        Provider.of<JsonProvider>(context, listen: false).search(value);
-      } else {
-        context.read<JsonProvider>().search(value);
-      }
+      context.read<JsonProvider>().search(value);
     }
   }
 
@@ -34,146 +27,91 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
 
   @override
   Widget build(BuildContext context) {
-    if (UniversalPlatform.isMacOS) {
-      return _buildMacOSSearchBar(context);
-    } else if (UniversalPlatform.isWindows) {
-      return _buildWindowsSearchBar(context);
-    } else {
-      return _buildMaterialSearchBar(context);
-    }
-  }
+    final isDark = AppTheme.isDark(context);
 
-  Widget _buildMacOSSearchBar(BuildContext context) {
     return Consumer<JsonProvider>(
       builder: (context, provider, child) {
-        bool isDark = MacosTheme.of(context).brightness == Brightness.dark;
-
         return Container(
-          padding: const EdgeInsets.all(4),
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: MacosTheme.of(context).canvasColor,
+            color: AppTheme.surface(isDark),
             border: Border(
-              bottom: BorderSide(
-                color: MacosTheme.of(context).dividerColor,
-                width: 1,
-              ),
+              bottom: BorderSide(color: AppTheme.border(isDark)),
             ),
           ),
           child: Row(
             children: [
               Expanded(
-                child: MacosSearchField(
-                  maxLines: 1,
-                  placeholder: 'Search keys and values (min 3 characters)...',
+                child: TextField(
+                  controller: _searchController,
+                  style: TextStyle(fontSize: 13, color: AppTheme.textPrimary(isDark)),
+                  decoration: InputDecoration(
+                    hintText: 'Search keys and values (min 3 characters)...',
+                    prefixIcon: Icon(Icons.search_rounded, size: 18, color: AppTheme.textSecondary(isDark)),
+                    prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 0),
+                    suffixIconConstraints: const BoxConstraints(minHeight: 30),
+                    suffixIcon: provider.isSearching
+                        ? Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: FittedBox(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 4,
+                                  color: AppTheme.accent(isDark),
+                                ),
+                              ),
+                            ),
+                          )
+                        : null,
+                  ),
                   onChanged: (value) {
                     if (value.length >= 3 || value.isEmpty) {
                       provider.search(value);
                     }
                   },
-                  controller: _searchController,
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (provider.searchQuery.isNotEmpty) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    provider.searchResultsCount > 0 ? '${provider.currentSearchIndex + 1}/${provider.searchResultsCount}' : '0/0',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                MacosIconButton(
-                  icon: MacosIcon(
-                    CupertinoIcons.chevron_up,
-                    color: isDark ? CupertinoColors.systemGrey4 : CupertinoColors.black,
-                  ),
-                  onPressed: provider.searchResultsCount > 0 ? () => provider.previousSearchResult(context) : null,
-                ),
-                MacosIconButton(
-                  icon: MacosIcon(
-                    CupertinoIcons.chevron_down,
-                    color: isDark ? CupertinoColors.systemGrey4 : CupertinoColors.black,
-                  ),
-                  onPressed: provider.searchResultsCount > 0 ? () => provider.nextSearchResult(context) : null,
-                ),
-                const SizedBox(width: 4),
-                MacosIconButton(
-                  icon: MacosIcon(
-                    CupertinoIcons.clear,
-                    color: isDark ? CupertinoColors.systemGrey4 : CupertinoColors.black,
-                  ),
-                  onPressed: () {
-                    _searchController.clear();
-                    provider.search('');
-                  },
-                ),
-              ],
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildWindowsSearchBar(BuildContext context) {
-    return Consumer<JsonProvider>(
-      builder: (context, provider, child) {
-        return Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: fluent.FluentTheme.of(context).menuColor,
-            border: Border.symmetric(
-              horizontal: BorderSide(
-                color: fluent.FluentTheme.of(context).resources.dividerStrokeColorDefault,
-                width: 1,
-              ),
-            ),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: fluent.TextBox(
-                  controller: _searchController,
-                  placeholder: 'Search keys and values (min 3 characters)...',
-                  prefix: const Padding(
-                    padding: EdgeInsets.only(left: 8),
-                    child: Icon(fluent.FluentIcons.search),
-                  ),
-                  suffix: context.read<JsonProvider>().isSearching ? const fluent.ProgressRing() : null,
                   onSubmitted: _onSubmitted,
                 ),
               ),
               if (provider.searchQuery.isNotEmpty) ...[
-                const SizedBox(width: 4),
+                const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceVariant(isDark),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
                   child: Text(
                     provider.searchResultsCount > 0 ? '${provider.currentSearchIndex + 1}/${provider.searchResultsCount}' : '0/0',
-                    style: const TextStyle(fontSize: 12),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary(isDark),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 4),
-                fluent.IconButton(
-                  icon: const Icon(fluent.FluentIcons.chevron_up),
+                const SizedBox(width: 2),
+                _SearchIconButton(
+                  icon: Icons.keyboard_arrow_up_rounded,
+                  tooltip: 'Previous match',
                   onPressed: provider.searchResultsCount > 0 ? () => provider.previousSearchResult(context) : null,
+                  isDark: isDark,
                 ),
-                fluent.IconButton(
-                  icon: const Icon(fluent.FluentIcons.chevron_down),
+                _SearchIconButton(
+                  icon: Icons.keyboard_arrow_down_rounded,
+                  tooltip: 'Next match',
                   onPressed: provider.searchResultsCount > 0 ? () => provider.nextSearchResult(context) : null,
+                  isDark: isDark,
                 ),
-                const SizedBox(width: 4),
-                const SizedBox(width: 8),
-                fluent.IconButton(
-                  icon: const Icon(fluent.FluentIcons.clear),
+                _SearchIconButton(
+                  icon: Icons.close_rounded,
+                  tooltip: 'Clear search',
                   onPressed: () {
                     _searchController.clear();
-                    context.read<JsonProvider>().search('');
+                    provider.search('');
                   },
+                  isDark: isDark,
                 ),
               ],
             ],
@@ -182,82 +120,30 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
       },
     );
   }
+}
 
-  Widget _buildMaterialSearchBar(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).dividerColor,
-            width: 1,
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade600 : Colors.grey.shade300,
-                ),
-              ),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Search keys and values (min 3 characters)...',
-                  hintStyle: TextStyle(
-                    color: Colors.grey.shade500,
-                    fontSize: 14,
-                  ),
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: Colors.grey.shade500,
-                    size: 20,
-                  ),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                ),
-                style: const TextStyle(fontSize: 14),
-                onChanged: (value) {
-                  if (value.length >= 3 || value.isEmpty) {
-                    context.read<JsonProvider>().search(value);
-                  }
-                },
-                onSubmitted: _onSubmitted,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade600 : Colors.grey.shade300,
-              ),
-            ),
-            child: IconButton(
-              icon: Icon(
-                Icons.clear,
-                size: 18,
-                color: Colors.grey.shade600,
-              ),
-              onPressed: () {
-                _searchController.clear();
-                context.read<JsonProvider>().search('');
-              },
-            ),
-          ),
-        ],
-      ),
+class _SearchIconButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final bool isDark;
+
+  const _SearchIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: Icon(icon, size: 18),
+      tooltip: tooltip,
+      onPressed: onPressed,
+      visualDensity: VisualDensity.compact,
+      color: AppTheme.textSecondary(isDark),
+      disabledColor: AppTheme.textTertiary(isDark).withValues(alpha: 0.4),
     );
   }
 }
